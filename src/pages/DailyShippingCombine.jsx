@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Upload, Download, FileSpreadsheet, ArrowLeft, Trash2, Eye, AlertCircle } from "lucide-react";
+import { Upload, Download, FileSpreadsheet, ArrowLeft, Trash2, Eye, AlertCircle, FileUp, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
@@ -8,14 +8,18 @@ import { saveAs } from "file-saver";
 const DailyShippingCombine = () => {
   const navigate = useNavigate();
   
-  // 每個來源以訂單為單位儲存
-  const [ordersBySource, setOrdersBySource] = useState({
-    宅配: {},  // { orderName: { header, rows } }
+  // 儲存現有報表的資料
+  const [existingReport, setExistingReport] = useState(null); // { 宅配: [], 7-11: [], 全家: [], 匯總: [] }
+  const [hasExistingReport, setHasExistingReport] = useState(false);
+  
+  // 新上傳的訂單資料
+  const [newOrdersBySource, setNewOrdersBySource] = useState({
+    宅配: {},
     "7-11": {},
     全家: {},
   });
-  const [unclassifiedOrders, setUnclassifiedOrders] = useState({}); // 真正無法分類的訂單
-  const [uploadedFiles, setUploadedFiles] = useState([]); // {name, rows}
+  const [unclassifiedOrders, setUnclassifiedOrders] = useState({});
+  const [uploadedFiles, setUploadedFiles] = useState([]);
   const [summaryData, setSummaryData] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -26,7 +30,9 @@ const DailyShippingCombine = () => {
   // 清除所有資料
   const handleClearAll = () => {
     if (window.confirm("確定要清除所有資料嗎？")) {
-      setOrdersBySource({
+      setExistingReport(null);
+      setHasExistingReport(false);
+      setNewOrdersBySource({
         宅配: {},
         "7-11": {},
         全家: {},
@@ -37,8 +43,55 @@ const DailyShippingCombine = () => {
     }
   };
 
-  // 上傳並解析多個檔案
-  const handleFilesUpload = (event) => {
+  // 上傳現有的統計報表 (Excel)
+  const handleExistingReportUpload = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsProcessing(true);
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        const reportData = {};
+        
+        // 讀取每個分頁的資料
+        workbook.SheetNames.forEach(sheetName => {
+          const worksheet = workbook.Sheets[sheetName];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+            header: 1,
+            defval: "" 
+          });
+          
+          if (jsonData.length > 0) {
+            reportData[sheetName] = {
+              header: jsonData[0],
+              rows: jsonData.slice(1) // 排除標題列
+            };
+          }
+        });
+        
+        setExistingReport(reportData);
+        setHasExistingReport(true);
+        setIsProcessing(false);
+        
+        alert(`成功載入現有報表！\n包含分頁: ${Object.keys(reportData).join(', ')}`);
+      } catch (error) {
+        console.error("讀取 Excel 檔案錯誤:", error);
+        alert("讀取 Excel 檔案失敗，請確認檔案格式正確");
+        setIsProcessing(false);
+      }
+    };
+    
+    reader.readAsArrayBuffer(file);
+    event.target.value = null;
+  };
+
+  // 上傳新的 CSV 資料
+  const handleNewDataUpload = (event) => {
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
     
@@ -57,11 +110,11 @@ const DailyShippingCombine = () => {
             const header = result.meta.fields || [];
             const rows = result.data || [];
 
-            // Step 1: 按 Name（訂單編號）分組
+            // 按 Name 分組
             const orderGroups = {};
             rows.forEach((row) => {
               const orderName = row["Name"];
-              if (!orderName) return; // 跳過沒有訂單編號的列
+              if (!orderName) return;
               
               if (!orderGroups[orderName]) {
                 orderGroups[orderName] = [];
@@ -69,17 +122,16 @@ const DailyShippingCombine = () => {
               orderGroups[orderName].push(row);
             });
 
-            // Step 2: 根據母單的 Tags 分類整個訂單
-            setOrdersBySource((prev) => {
+            // 根據母單的 Tags 分類整個訂單
+            setNewOrdersBySource((prev) => {
               const newState = { ...prev };
               const newUnclassified = { ...unclassifiedOrders };
 
               Object.entries(orderGroups).forEach(([orderName, orderRows]) => {
-                // 找出母單（有 Payment ID 的記錄）
+                // 找出母單
                 const motherRow = orderRows.find(r => r["Payment ID"]);
                 
                 if (motherRow) {
-                  // 根據母單的 Tags 決定分類
                   const rawTag = (motherRow["Tags"] || "").toString();
                   let sourceType = null;
                   
@@ -92,38 +144,16 @@ const DailyShippingCombine = () => {
                   }
                   
                   if (sourceType) {
-                    // // 將整個訂單（母單+子單）加入對應分類
-                    // if (!newState[sourceType][orderName]) {
-                    //   newState[sourceType][orderName] = {
-                    //     header: header,
-                    //     rows: orderRows,
-                    //     filename: file.name
-                    //   };
-                    // } else {
-                    //   // 如果訂單已存在，合併資料
-                    //   newState[sourceType][orderName].rows.push(...orderRows);
-                    // }
                     if (!newState[sourceType][orderName]) {
-                      // 第一次出現，直接存整個訂單
                       newState[sourceType][orderName] = {
                         header: header,
                         rows: orderRows,
                         filename: file.name
                       };
                     } else {
-                      // 已經存在 → 合併但避免重複
-                      const existingRows = newState[sourceType][orderName].rows;
-                      
-                      orderRows.forEach((row) => {
-                        const isDuplicate = existingRows.some(
-                          (r) => r["Name"] === row["Name"] && r["Lineitem name"] === row["Lineitem name"]
-                        );
-                        if (!isDuplicate) {
-                          existingRows.push(row);
-                        }
-                      });
+                      // 如果訂單已存在，合併資料，測試會導致子單重複新增
+                      // newState[sourceType][orderName].rows.push(...orderRows);
                     }
-
                   } else {
                     // 母單沒有有效的 Tags，放到未分類
                     newUnclassified[orderName] = {
@@ -133,7 +163,7 @@ const DailyShippingCombine = () => {
                     };
                   }
                 } else {
-                  // 沒有母單的訂單（不應該發生，但以防萬一）
+                  // 沒有母單的訂單
                   newUnclassified[orderName] = {
                     header: header,
                     rows: orderRows,
@@ -146,7 +176,6 @@ const DailyShippingCombine = () => {
               return newState;
             });
 
-            // 更新已上傳檔案清單
             setUploadedFiles((prev) => [
               ...prev,
               { name: file.name, rows: rows.length },
@@ -169,114 +198,214 @@ const DailyShippingCombine = () => {
       reader.readAsText(file, "UTF-8");
     });
 
-    // 清空 input
     event.target.value = null;
   };
 
-  // 計算匯總（只計算母單）
-  const computeSummaryFromOrders = () => {
-    const summary = {};
-    
-    const inc = (date, col) => {
-      if (!summary[date]) {
-        summary[date] = { 
-          日期: date, 
-          宅配: 0, 
-          "7-11": 0, 
-          全家: 0, 
-          總和: 0 
-        };
-      }
-      summary[date][col] += 1;
-      summary[date]["總和"] += 1;
+  // 合併資料並計算匯總（簡化版：直接合併，不去重複）
+  const mergeDataAndComputeSummary = () => {
+    const mergedData = {
+      宅配: { header: null, rows: [] },
+      "7-11": { header: null, rows: [] },
+      全家: { header: null, rows: [] }
     };
 
-    // 計算各來源的母單數量
-    Object.entries(ordersBySource).forEach(([sourceKey, orders]) => {
-      Object.values(orders).forEach((orderData) => {
-        // 只計算母單（有 Payment ID 的第一筆）
+    // 收集現有報表中的所有 Payment ID
+    const existingPaymentIds = new Set();
+    
+    if (hasExistingReport && existingReport) {
+      ["宅配", "7-11", "全家"].forEach(sourceKey => {
+        if (existingReport[sourceKey]) {
+          const existingData = existingReport[sourceKey];
+          const paymentIdIndex = existingData.header.indexOf("Payment ID");
+          
+          if (paymentIdIndex !== -1) {
+            existingData.rows.forEach(rowArray => {
+              const paymentId = rowArray[paymentIdIndex];
+              if (paymentId && paymentId !== "") {
+                existingPaymentIds.add(paymentId);
+              }
+            });
+          }
+        }
+      });
+    }
+
+    console.log(`現有報表中有 ${existingPaymentIds.size} 個不重複的 Payment ID`);
+
+    // 統計跳過的訂單數
+    let skippedOrderCount = 0;
+
+    // 處理新資料（放在前面，但排除 Payment ID 重複的）
+    Object.entries(newOrdersBySource).forEach(([sourceKey, orders]) => {
+      if (Object.keys(orders).length === 0) return;
+      
+      const firstOrder = Object.values(orders)[0];
+      mergedData[sourceKey].header = firstOrder.header;
+      
+      // 過濾掉 Payment ID 已存在的訂單
+      const filteredOrderNames = [];
+      
+      Object.keys(orders).forEach(orderName => {
+        const orderData = orders[orderName];
         const motherRow = orderData.rows.find(r => r["Payment ID"]);
+        
+        if (motherRow && motherRow["Payment ID"]) {
+          // 檢查 Payment ID 是否已存在
+          if (existingPaymentIds.has(motherRow["Payment ID"])) {
+            skippedOrderCount++;
+            console.log(`跳過訂單 ${orderName}，Payment ID ${motherRow["Payment ID"]} 已存在`);
+          } else {
+            filteredOrderNames.push(orderName);
+          }
+        } else {
+          // 沒有母單或沒有 Payment ID 的訂單，保留
+          filteredOrderNames.push(orderName);
+        }
+      });
+      
+      // 按日期排序（只處理未重複的訂單）
+      const sortedOrderNames = filteredOrderNames.sort((a, b) => {
+        const aOrder = orders[a];
+        const bOrder = orders[b];
+        const aMotherRow = aOrder.rows.find(r => r["Payment ID"]);
+        const bMotherRow = bOrder.rows.find(r => r["Payment ID"]);
+        const aDate = aMotherRow ? aMotherRow["Paid at"] || "" : "";
+        const bDate = bMotherRow ? bMotherRow["Paid at"] || "" : "";
+        // 新資料內部按日期降序（最新的在最前）
+        return bDate.localeCompare(aDate);
+      });
+
+      // 加入新資料（母單在前，子單在後）
+      sortedOrderNames.forEach((orderName) => {
+        const orderData = orders[orderName];
+        const motherRow = orderData.rows.find(r => r["Payment ID"]);
+        const childRows = orderData.rows.filter(r => !r["Payment ID"]);
+        
         if (motherRow) {
-          const paidAt = (motherRow["Paid at"] || "").toString();
-          const date = paidAt ? paidAt.split(" ")[0] : "未知日期";
-          inc(date, sourceKey);
+          mergedData[sourceKey].rows.push(motherRow);
+          childRows.forEach(child => {
+            mergedData[sourceKey].rows.push(child);
+          });
+        } else {
+          orderData.rows.forEach(row => {
+            mergedData[sourceKey].rows.push(row);
+          });
         }
       });
     });
 
-    return Object.values(summary).sort((a, b) => a.日期.localeCompare(b.日期));
+    // 顯示跳過的訂單數
+    if (skippedOrderCount > 0) {
+      console.log(`總共跳過 ${skippedOrderCount} 個重複的訂單`);
+    }
+
+    // 加入現有報表資料（放在後面）
+    if (hasExistingReport && existingReport) {
+      ["宅配", "7-11", "全家"].forEach(sourceKey => {
+        if (existingReport[sourceKey]) {
+          const existingData = existingReport[sourceKey];
+          
+          // 如果新資料沒有 header，使用現有的
+          if (!mergedData[sourceKey].header && existingData.header) {
+            mergedData[sourceKey].header = existingData.header;
+          }
+          
+          // 將現有資料轉換為物件格式並加入
+          existingData.rows.forEach(rowArray => {
+            const rowObj = {};
+            existingData.header.forEach((col, idx) => {
+              rowObj[col] = rowArray[idx] || "";
+            });
+            mergedData[sourceKey].rows.push(rowObj);
+          });
+        }
+      });
+    }
+
+    // 重新計算匯總（最簡單可靠的方式）
+    const summaryMap = {};
+    
+    Object.entries(mergedData).forEach(([sourceKey, data]) => {
+      data.rows.forEach(row => {
+        // 只計算母單
+        if (row["Payment ID"]) {
+          const paidAt = (row["Paid at"] || "").toString();
+          const date = paidAt ? paidAt.split(" ")[0] : "未知日期";
+          
+          if (!summaryMap[date]) {
+            summaryMap[date] = {
+              日期: date,
+              宅配: 0,
+              "7-11": 0,
+              全家: 0,
+              總和: 0
+            };
+          }
+          
+          summaryMap[date][sourceKey] += 1;
+          summaryMap[date]["總和"] += 1;
+        }
+      });
+    });
+
+    // 按日期排序（降序，最新的在前）
+    const summaryArray = Object.values(summaryMap).sort((a, b) => 
+      b.日期.localeCompare(a.日期)
+    );
+
+    return { mergedData, summaryArray };
   };
 
   // 預覽匯總
   const handleGeneratePreview = () => {
-    const summary = computeSummaryFromOrders();
-    setSummaryData(summary);
+    const { summaryArray } = mergeDataAndComputeSummary();
+    setSummaryData(summaryArray);
   };
 
-  // 匯出 Excel
+  // 匯出合併後的 Excel
   const handleExportExcel = () => {
     try {
       const wb = XLSX.utils.book_new();
+      const { mergedData, summaryArray } = mergeDataAndComputeSummary();
 
       // 為每個來源建立分頁
-      Object.entries(ordersBySource).forEach(([sourceKey, orders]) => {
-        if (Object.keys(orders).length === 0) return;
+      ["宅配", "7-11", "全家"].forEach(sourceKey => {
+        const sourceData = mergedData[sourceKey];
+        if (!sourceData.header || sourceData.rows.length === 0) return;
 
-        // 使用第一個訂單的 header
-        const firstOrder = Object.values(orders)[0];
-        const header = firstOrder.header;
-        const aoa = [header];
-
-        // 按訂單名稱排序
-        const sortedOrderNames = Object.keys(orders).sort((a, b) => {
-          const aOrder = orders[a];
-          const bOrder = orders[b];
-          const aMotherRow = aOrder.rows.find(r => r["Payment ID"]);
-          const bMotherRow = bOrder.rows.find(r => r["Payment ID"]);
-          const aDate = aMotherRow ? aMotherRow["Paid at"] || "" : "";
-          const bDate = bMotherRow ? bMotherRow["Paid at"] || "" : "";
-          return aDate.localeCompare(bDate);
+        const aoa = [sourceData.header];
+        
+        // 轉換資料為陣列格式
+        sourceData.rows.forEach(row => {
+          const rowArray = sourceData.header.map(col => {
+            const value = row[col];
+            return value === undefined || value === null ? "" : value;
+          });
+          aoa.push(rowArray);
         });
 
-        // 處理每個訂單，確保母單在前、子單在後
-        sortedOrderNames.forEach((orderName) => {
-          const orderData = orders[orderName];
-          const motherRow = orderData.rows.find(r => r["Payment ID"]);
-          const childRows = orderData.rows.filter(r => !r["Payment ID"]);
-          
-          if (motherRow) {
-            // 先加入母單
-            aoa.push(header.map(h => {
-              const value = motherRow[h];
-              return value === undefined || value === null ? "" : value;
-            }));
-            
-            // 再加入所有子單
-            childRows.forEach((childRow) => {
-              aoa.push(header.map(h => {
-                const value = childRow[h];
-                return value === undefined || value === null ? "" : value;
-              }));
-            });
-          } else {
-            // 沒有母單的情況（不應該發生）
-            orderData.rows.forEach((row) => {
-              aoa.push(header.map(h => {
-                const value = row[h];
-                return value === undefined || value === null ? "" : value;
-              }));
-            });
-          }
-        });
-
-        // 建立工作表
         if (aoa.length > 1) {
           const ws = XLSX.utils.aoa_to_sheet(aoa);
+          
+          // 設定欄寬（日期欄設為15）
+          const colWidths = sourceData.header.map(col => {
+            if (col === "Paid at" || col === "Created at" || col === "Fulfilled at") {
+              return { wch: 20 };
+            } else if (col === "日期") {
+              return { wch: 15 };
+            } else if (col === "Lineitem name" || col === "Email") {
+              return { wch: 30 };
+            } else {
+              return { wch: 12 };
+            }
+          });
+          ws['!cols'] = colWidths;
+          
           XLSX.utils.book_append_sheet(wb, ws, sourceKey);
         }
       });
 
-      // 如果有未分類的訂單，也建立分頁（但通常不應該有）
+      // 未分類分頁（如果有）
       if (Object.keys(unclassifiedOrders).length > 0) {
         const firstOrder = Object.values(unclassifiedOrders)[0];
         const header = firstOrder.header;
@@ -298,13 +427,22 @@ const DailyShippingCombine = () => {
       }
 
       // 建立匯總分頁
-      const summaryArray = computeSummaryFromOrders();
       if (summaryArray.length > 0) {
         const wsSummary = XLSX.utils.json_to_sheet(summaryArray);
+        
+        // 設定匯總表的欄寬，日期欄設為15
+        wsSummary['!cols'] = [
+          { wch: 15 },  // 日期
+          { wch: 10 },  // 宅配
+          { wch: 10 },  // 7-11
+          { wch: 10 },  // 全家
+          { wch: 10 }   // 總和
+        ];
+        
         XLSX.utils.book_append_sheet(wb, wsSummary, "匯總");
       }
 
-      // 下載檔案
+      // 下載檔案（統一命名格式）
       const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
       const blob = new Blob([excelBuffer], { type: "application/octet-stream" });
       const date = new Date().toISOString().split('T')[0];
@@ -316,9 +454,9 @@ const DailyShippingCombine = () => {
     }
   };
 
-  // 計算各來源統計
+  // 計算統計資料
   const getSourceStats = (sourceKey) => {
-    const orders = ordersBySource[sourceKey];
+    const orders = newOrdersBySource[sourceKey];
     let totalRows = 0;
     let motherOrders = 0;
     let childRows = 0;
@@ -337,13 +475,19 @@ const DailyShippingCombine = () => {
     return { totalRows, motherOrders, childRows, orderCount: Object.keys(orders).length };
   };
 
-  // 取得未分類統計
-  const getUnclassifiedStats = () => {
-    let totalRows = 0;
-    Object.values(unclassifiedOrders).forEach((orderData) => {
-      totalRows += orderData.rows.length;
+  // 取得現有報表統計
+  const getExistingReportStats = () => {
+    if (!hasExistingReport || !existingReport) return null;
+    
+    const stats = {};
+    ["宅配", "7-11", "全家"].forEach(source => {
+      if (existingReport[source]) {
+        stats[source] = existingReport[source].rows.length;
+      } else {
+        stats[source] = 0;
+      }
     });
-    return { totalRows, orderCount: Object.keys(unclassifiedOrders).length };
+    return stats;
   };
 
   return (
@@ -374,51 +518,100 @@ const DailyShippingCombine = () => {
             <FileSpreadsheet className="h-16 w-16 mx-auto text-blue-500 mb-4" />
             <h2 className="text-2xl font-bold mb-4">每日出貨合併工具</h2>
             <p className="text-gray-600 mb-6">
-              上傳 CSV 檔案，系統會根據母單的 Tags 自動分類整個訂單（含子單）
+              可選擇上傳現有統計報表，將新資料合併進去
             </p>
 
-            {/* Upload Section */}
-            <div className="flex flex-col items-center space-y-4">
-              <label className="flex items-center cursor-pointer bg-blue-50 text-blue-600 px-6 py-3 rounded-lg border-2 border-blue-200 hover:bg-blue-100 transition-all hover:border-blue-300">
-                <Upload className="h-5 w-5 mr-2" />
-                選擇 CSV 檔案 (可多選)
-                <input
-                  type="file"
-                  accept=".csv"
-                  multiple
-                  className="hidden"
-                  onChange={handleFilesUpload}
-                  disabled={isProcessing}
-                />
-              </label>
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap gap-3 justify-center">
-                <button
-                  onClick={handleGeneratePreview}
-                  className="flex items-center bg-yellow-500 text-white px-4 py-2 rounded-lg shadow hover:bg-yellow-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={Object.values(ordersBySource).every(o => Object.keys(o).length === 0)}
-                >
-                  <Eye className="h-5 w-5 mr-2" />
-                  預覽匯總
-                </button>
-                <button
-                  onClick={handleExportExcel}
-                  className="flex items-center bg-green-500 text-white px-4 py-2 rounded-lg shadow hover:bg-green-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={Object.values(ordersBySource).every(o => Object.keys(o).length === 0)}
-                >
-                  <Download className="h-5 w-5 mr-2" />
-                  下載 Excel
-                </button>
-                <button
-                  onClick={handleClearAll}
-                  className="flex items-center bg-red-500 text-white px-4 py-2 rounded-lg shadow hover:bg-red-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={uploadedFiles.length === 0}
-                >
-                  <Trash2 className="h-5 w-5 mr-2" />
-                  清除所有
-                </button>
+            {/* Upload Sections */}
+            <div className="grid md:grid-cols-2 gap-6 mb-6">
+              {/* 上傳現有報表 */}
+              <div className="bg-gray-50 rounded-lg p-6 border-2 border-gray-200">
+                <div className="mb-4">
+                  <FileUp className="h-10 w-10 mx-auto text-gray-400 mb-2" />
+                  <h3 className="font-semibold text-gray-800">步驟 1：上傳現有報表（選擇性）</h3>
+                  <p className="text-sm text-gray-600 mt-2">上傳每月統計報表 Excel 檔案</p>
+                </div>
+                
+                <label className="flex items-center justify-center cursor-pointer bg-white text-gray-600 px-4 py-2 rounded-lg border-2 border-gray-300 hover:bg-gray-100 transition-all">
+                  <FileUp className="h-5 w-5 mr-2" />
+                  選擇統計報表 (Excel)
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="hidden"
+                    onChange={handleExistingReportUpload}
+                    disabled={isProcessing}
+                  />
+                </label>
+                
+                {hasExistingReport && (
+                  <div className="mt-3 text-sm text-green-600">
+                    ✅ 已載入現有報表
+                    {getExistingReportStats() && (
+                      <div className="mt-1 text-xs text-gray-500">
+                        宅配: {getExistingReportStats()["宅配"]} 筆 | 
+                        7-11: {getExistingReportStats()["7-11"]} 筆 | 
+                        全家: {getExistingReportStats()["全家"]} 筆
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
+
+              {/* 上傳新資料 */}
+              <div className="bg-blue-50 rounded-lg p-6 border-2 border-blue-200">
+                <div className="mb-4">
+                  <Plus className="h-10 w-10 mx-auto text-blue-400 mb-2" />
+                  <h3 className="font-semibold text-blue-800">步驟 2：上傳新資料</h3>
+                  <p className="text-sm text-blue-600 mt-2">上傳要新增的 CSV 檔案</p>
+                </div>
+                
+                <label className="flex items-center justify-center cursor-pointer bg-white text-blue-600 px-4 py-2 rounded-lg border-2 border-blue-300 hover:bg-blue-50 transition-all">
+                  <Upload className="h-5 w-5 mr-2" />
+                  選擇 CSV 檔案 (可多選)
+                  <input
+                    type="file"
+                    accept=".csv"
+                    multiple
+                    className="hidden"
+                    onChange={handleNewDataUpload}
+                    disabled={isProcessing}
+                  />
+                </label>
+                
+                {uploadedFiles.length > 0 && (
+                  <div className="mt-3 text-sm text-green-600">
+                    ✅ 已上傳 {uploadedFiles.length} 個檔案
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3 justify-center">
+              <button
+                onClick={handleGeneratePreview}
+                className="flex items-center bg-yellow-500 text-white px-4 py-2 rounded-lg shadow hover:bg-yellow-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={Object.values(newOrdersBySource).every(o => Object.keys(o).length === 0)}
+              >
+                <Eye className="h-5 w-5 mr-2" />
+                預覽匯總
+              </button>
+              <button
+                onClick={handleExportExcel}
+                className="flex items-center bg-green-500 text-white px-4 py-2 rounded-lg shadow hover:bg-green-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={Object.values(newOrdersBySource).every(o => Object.keys(o).length === 0) && !hasExistingReport}
+              >
+                <Download className="h-5 w-5 mr-2" />
+                下載 Excel
+              </button>
+              <button
+                onClick={handleClearAll}
+                className="flex items-center bg-red-500 text-white px-4 py-2 rounded-lg shadow hover:bg-red-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={uploadedFiles.length === 0 && !hasExistingReport}
+              >
+                <Trash2 className="h-5 w-5 mr-2" />
+                清除所有
+              </button>
             </div>
 
             {/* Processing Indicator */}
@@ -429,28 +622,11 @@ const DailyShippingCombine = () => {
               </div>
             )}
 
-            {/* Uploaded Files List */}
-            {uploadedFiles.length > 0 && (
-              <div className="mt-8 text-left bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-gray-800 mb-3 flex items-center">
-                  <FileSpreadsheet className="h-5 w-5 mr-2 text-blue-500" />
-                  已上傳的檔案
-                </h3>
-                <div className="space-y-2">
-                  {uploadedFiles.map((f, idx) => (
-                    <div key={idx} className="flex justify-between items-center bg-white px-4 py-2 rounded border border-gray-200">
-                      <span className="text-sm text-gray-700">{f.name}</span>
-                      <span className="text-sm font-medium text-blue-600">{f.rows} 筆</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Statistics */}
             <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
               {["宅配", "7-11", "全家"].map((key) => {
                 const stats = getSourceStats(key);
+                const existingStats = getExistingReportStats();
                 
                 return (
                   <div 
@@ -458,38 +634,41 @@ const DailyShippingCombine = () => {
                     className="bg-gradient-to-br from-blue-50 to-indigo-100 border border-blue-200 rounded-lg p-4"
                   >
                     <h4 className="font-semibold text-blue-700 mb-2">{key}</h4>
-                    <div className="text-2xl font-bold text-gray-800">{stats.orderCount} 筆訂單</div>
-                    <div className="mt-2 space-y-1 text-xs text-gray-600">
-                      <div>母單: {stats.motherOrders} 筆</div>
-                      <div>子單: {stats.childRows} 筆</div>
-                      <div>總計: {stats.totalRows} 筆資料</div>
+                    
+                    {/* 新資料統計 */}
+                    <div className="text-lg font-bold text-gray-800">
+                      新增: {stats.orderCount} 筆訂單
                     </div>
+                    <div className="text-xs text-gray-600">
+                      母單: {stats.motherOrders} | 子單: {stats.childRows}
+                    </div>
+                    
+                    {/* 現有資料統計 */}
+                    {existingStats && existingStats[key] > 0 && (
+                      <div className="mt-2 pt-2 border-t border-blue-200">
+                        <div className="text-sm text-gray-600">
+                          現有: {existingStats[key]} 筆資料
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
 
-            {/* Unclassified Warning */}
-            {Object.keys(unclassifiedOrders).length > 0 && (
-              <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <div className="flex items-center text-yellow-800">
-                  <AlertCircle className="h-5 w-5 mr-2" />
-                  <span>有 {getUnclassifiedStats().orderCount} 筆訂單無法分類（母單缺少 Tags）</span>
-                </div>
-              </div>
-            )}
-
             {/* Summary Preview Table */}
             {summaryData.length > 0 && (
               <div className="mt-8">
                 <h3 className="font-semibold text-gray-800 mb-3 text-left">
-                  匯總預覽（只計算母單數量）
+                  合併後匯總預覽（重新計算）
                 </h3>
                 <div className="overflow-x-auto shadow-sm border border-gray-200 rounded-lg">
                   <table className="w-full text-sm">
                     <thead className="bg-gradient-to-r from-blue-50 to-indigo-50">
                       <tr>
-                        <th className="border-b border-gray-200 px-4 py-3 text-left font-medium text-gray-700">日期</th>
+                        <th className="border-b border-gray-200 px-4 py-3 text-left font-medium text-gray-700" style={{minWidth: '120px'}}>
+                          日期
+                        </th>
                         <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-gray-700">宅配</th>
                         <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-gray-700">7-11</th>
                         <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-gray-700">全家</th>
@@ -497,7 +676,7 @@ const DailyShippingCombine = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white">
-                      {summaryData.map((r, i) => (
+                      {summaryData.slice(0, 10).map((r, i) => (
                         <tr key={i} className="hover:bg-gray-50 transition-colors">
                           <td className="border-b border-gray-100 px-4 py-3">{r.日期}</td>
                           <td className="border-b border-gray-100 px-4 py-3 text-center">{r.宅配 || 0}</td>
@@ -510,18 +689,25 @@ const DailyShippingCombine = () => {
                       ))}
                     </tbody>
                   </table>
+                  {summaryData.length > 10 && (
+                    <div className="text-center py-2 text-sm text-gray-500 bg-gray-50">
+                      顯示前 10 筆，共 {summaryData.length} 筆資料
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
             {/* Instructions */}
             <div className="mt-8 bg-blue-50 rounded-lg p-4 text-left">
-              <h4 className="font-semibold text-blue-900 mb-2">處理邏輯說明</h4>
+              <h4 className="font-semibold text-blue-900 mb-2">合併邏輯說明</h4>
               <ul className="text-sm text-blue-800 space-y-1">
-                <li>✅ <strong>正確分類</strong>：子單會跟隨母單的 Tags 分類到同一分頁</li>
-                <li>✅ <strong>母單子單排序</strong>：同訂單的母單在前，子單在後</li>
-                <li>✅ <strong>匯總計算</strong>：只計算母單（有 Payment ID）的數量</li>
-                <li>✅ <strong>不會有未分類的子單</strong>：所有子單都會跟隨母單分類</li>
+                <li>📊 <strong>現有報表</strong>：可選擇上傳每月統計報表（Excel 格式）</li>
+                <li>➕ <strong>資料合併</strong>：新資料原樣插入最前面，現有資料保留在後面</li>
+                <li>📋 <strong>保持完整</strong>：所有上傳的資料不做異動，原封不動放入分頁</li>
+                <li>📅 <strong>匯總計算</strong>：重新計算所有母單數量，產生最新統計</li>
+                <li>📁 <strong>檔案命名</strong>：統一輸出為「出貨報表_YYYY-MM-DD.xlsx」</li>
+                <li>🔄 <strong>母單子單</strong>：同訂單的母單永遠排在子單前面</li>
               </ul>
             </div>
           </div>
