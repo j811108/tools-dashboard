@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
-import { Upload, Download, FileSpreadsheet, Plus, Eye, AlertTriangle } from 'lucide-react';
+import { Upload, Download, FileSpreadsheet, Plus, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { useNavigate } from "react-router-dom";
 import * as XLSX from 'xlsx';
 
 
@@ -12,6 +13,11 @@ const ExcelMergeTool = () => {
   const [mappingErrors, setMappingErrors] = useState([]);
   const [extractedTables, setExtractedTables] = useState([]);
   const [previewMode, setPreviewMode] = useState(null);
+  const navigate = useNavigate();
+
+  const handleBackToHome = () => {
+    navigate("/");
+  };
 
   // 處理來源檔案上傳
   const handleSourceFileUpload = useCallback((event) => {
@@ -398,6 +404,25 @@ const ExcelMergeTool = () => {
 
   return (
     <div className="max-w-7xl mx-auto p-6 bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <button
+              onClick={handleBackToHome}
+              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              返回工具首頁
+            </button>
+            <h1 className="text-xl font-semibold text-gray-900">
+              每日出貨合併工具
+            </h1>
+            <div className="w-32"></div>
+          </div>
+        </div>
+      </div>
+
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
         <h1 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
           <FileSpreadsheet className="text-blue-600" />

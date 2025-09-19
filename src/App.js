@@ -13,7 +13,7 @@ import DailyShippingCombine from './pages/DailyShippingCombine';
 
 function App() {
   return (
-    <Router>
+    <Router basename="/tools-dashboard">
       <div className="App">
         <Routes>
           {/* 首頁 */}
