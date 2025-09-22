@@ -60,7 +60,7 @@ const ExcelMergeTool = () => {
       const rowText = row.join('').toLowerCase();
       
       // 檢查是否為表格名稱行
-      if (rowText.includes('總倉') || rowText.includes('電商') || rowText.includes('平台') || 
+      if (rowText.includes('展') || rowText.includes('總倉') || rowText.includes('電商') || rowText.includes('平台') || 
           rowText.includes('官網') || rowText.includes('倉庫')) {
         // 保存前一個表格
         if (currentTable && currentTable.dataRows.length > 0) {
@@ -69,10 +69,10 @@ const ExcelMergeTool = () => {
         
         // 開始新表格
         const tableName = row[0] || '';
-        let sourceType = '未知';
+        let sourceType = '總倉';  //1140922 未知一律丟總倉
         if (tableName.includes('平台') || tableName.includes('平臺')) sourceType = '平台';
         else if (tableName.includes('電商') || tableName.includes('官網')) sourceType = '官網';
-        else if (tableName.includes('總倉')) sourceType = '總倉';
+        // else if (tableName.includes('總倉')) sourceType = '總倉';
         
         currentTable = {
           name: tableName,
