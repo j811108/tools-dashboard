@@ -22,11 +22,18 @@ const HomePage = () => {
       available: true
     },
     {
-      id: 'shipping-counter',
-      name: 'Shipping Counter',
-      description: '出貨計數工具',
-      path: '/shipping-counter',
-      available: false
+      id: 'count-shipping-subtotal',
+      name: 'Count Shipping Subtotal',
+      description: '出貨明細計算業績',
+      path: '/count-shipping-subtotal',
+      available: true
+    },
+    {
+      id: 'month-shipping-count',
+      name: 'Month Shipping Count',
+      description: '每月出貨統計',
+      path: '/month-shipping-count',
+      available: true
     },
     {
       id: 'tester',
