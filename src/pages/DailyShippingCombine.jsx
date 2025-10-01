@@ -325,25 +325,44 @@ const DailyShippingCombine = () => {
     // 重新計算匯總（最簡單可靠的方式）
     const summaryMap = {};
     
-    Object.entries(mergedData).forEach(([sourceKey, data]) => {
+    Object.entries(mergedData).forEach(([sourceKey, data]) => {      
+      let currentMotherDate = null; // 記錄當前母單的日期
       data.rows.forEach(row => {
         // 只計算母單
         if (row["Payment ID"]) {
           const paidAt = (row["Paid at"] || "").toString();
-          const date = paidAt ? paidAt.split(" ")[0] : "未知日期";
+          currentMotherDate = paidAt ? paidAt.split(" ")[0] : "未知日期";
+        }
+        
+        const date = currentMotherDate || "未知日期";
+
+        if (!summaryMap[date]) {
+          summaryMap[date] = {
+            日期: date,
+            宅配有運費: 0,
+            宅配無運費: 0,
+            "7-11有運費": 0,
+            "7-11無運費": 0,
+            全家有運費: 0,
+            全家無運費: 0,
+            有運費訂單數: 0,
+            無運費訂單數: 0,
+            總訂單數: 0
+          };
+        }
           
-          if (!summaryMap[date]) {
-            summaryMap[date] = {
-              日期: date,
-              宅配: 0,
-              "7-11": 0,
-              全家: 0,
-              總和: 0
-            };
+        if (row["Payment ID"]) {
+          const shippingStr = (row["Shipping"] || "0").toString().replace(/,/g, '');
+          const shipping = parseFloat(shippingStr) || 0;
+          
+          if (shipping > 0) {
+            summaryMap[date][`${sourceKey}有運費`] += 1;
+            summaryMap[date].有運費訂單數 += 1;
+          } else {
+            summaryMap[date][`${sourceKey}無運費`] += 1;
+            summaryMap[date].無運費訂單數 += 1;
           }
-          
-          summaryMap[date][sourceKey] += 1;
-          summaryMap[date]["總和"] += 1;
+          summaryMap[date].總訂單數 += 1;
         }
       });
     });
@@ -390,9 +409,9 @@ const DailyShippingCombine = () => {
           // 設定欄寬（日期欄設為15）
           const colWidths = sourceData.header.map(col => {
             if (col === "Paid at" || col === "Created at" || col === "Fulfilled at") {
-              return { wch: 20 };
+              return { wch: 12 };
             } else if (col === "日期") {
-              return { wch: 15 };
+              return { wch: 12 };
             } else if (col === "Lineitem name" || col === "Email") {
               return { wch: 30 };
             } else {
@@ -430,15 +449,20 @@ const DailyShippingCombine = () => {
       if (summaryArray.length > 0) {
         const wsSummary = XLSX.utils.json_to_sheet(summaryArray);
         
-        // 設定匯總表的欄寬，日期欄設為15
-        wsSummary['!cols'] = [
-          { wch: 15 },  // 日期
-          { wch: 10 },  // 宅配
-          { wch: 10 },  // 7-11
-          { wch: 10 },  // 全家
-          { wch: 10 }   // 總和
-        ];
+        // 設定匯總表的欄寬
+        // wsSummary['!cols'] = [
+        //   { wch: 12 },  // 日期
+        //   { wch: 10 },  // 宅配
+        //   { wch: 10 },  // 7-11
+        //   { wch: 10 },  // 全家
+        //   { wch: 10 }   // 總和
+        // ];
         
+        // 取得欄位數量
+        const colCount = Object.keys(summaryArray[0]).length;
+        // 全部欄位都設成寬度 12
+        wsSummary['!cols'] = Array(colCount).fill({ wch: 12 });
+
         XLSX.utils.book_append_sheet(wb, wsSummary, "匯總");
       }
 
@@ -669,21 +693,27 @@ const DailyShippingCombine = () => {
                         <th className="border-b border-gray-200 px-4 py-3 text-left font-medium text-gray-700" style={{minWidth: '120px'}}>
                           日期
                         </th>
-                        <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-gray-700">宅配</th>
-                        <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-gray-700">7-11</th>
-                        <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-gray-700">全家</th>
-                        <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-blue-700">總和</th>
+                        <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-gray-700">宅配有運費</th>
+                        <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-gray-700">宅配無運費</th>
+                        <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-gray-700">7-11有運費</th>
+                        <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-gray-700">7-11無運費</th>
+                        <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-gray-700">全家有運費</th>
+                        <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-gray-700">全家無運費</th>
+                        <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-blue-700">總訂單數</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white">
                       {summaryData.slice(0, 10).map((r, i) => (
                         <tr key={i} className="hover:bg-gray-50 transition-colors">
                           <td className="border-b border-gray-100 px-4 py-3">{r.日期}</td>
-                          <td className="border-b border-gray-100 px-4 py-3 text-center">{r.宅配 || 0}</td>
-                          <td className="border-b border-gray-100 px-4 py-3 text-center">{r["7-11"] || 0}</td>
-                          <td className="border-b border-gray-100 px-4 py-3 text-center">{r.全家 || 0}</td>
+                          <td className="border-b border-gray-100 px-4 py-3 text-center">{r["宅配有運費"] || 0}</td>
+                          <td className="border-b border-gray-100 px-4 py-3 text-center">{r["宅配無運費"] || 0}</td>
+                          <td className="border-b border-gray-100 px-4 py-3 text-center">{r["7-11有運費"] || 0}</td>
+                          <td className="border-b border-gray-100 px-4 py-3 text-center">{r["7-11無運費"] || 0}</td>
+                          <td className="border-b border-gray-100 px-4 py-3 text-center">{r["全家有運費"] || 0}</td>
+                          <td className="border-b border-gray-100 px-4 py-3 text-center">{r["全家無運費"] || 0}</td>
                           <td className="border-b border-gray-100 px-4 py-3 text-center font-semibold text-blue-600">
-                            {r.總和}
+                            {r["總訂單數"] || 0}
                           </td>
                         </tr>
                       ))}

@@ -416,7 +416,7 @@ const ExcelMergeTool = () => {
               返回工具首頁
             </button>
             <h1 className="text-xl font-semibold text-gray-900">
-              每日出貨合併工具
+              庫存表
             </h1>
             <div className="w-32"></div>
           </div>

@@ -480,27 +480,10 @@ const CountShippingSubTotal = () => {
         
         const wsSummary = XLSX.utils.json_to_sheet(summaryForExport);
         
-        wsSummary['!cols'] = [
-          { wch: 12 },  // 日期
-          { wch: 12 },  // 總業績
-          { wch: 12 },  // 總訂單數
-          { wch: 12 },  // 總雙數
-          { wch: 12 },  // 宅配有運費
-          { wch: 12 },  // 宅配無運費
-          { wch: 12 },  // 宅配總雙數
-          { wch: 12 },  // 宅配業績
-          { wch: 12 },  // 宅配平均金額
-          { wch: 12 },  // 7-11有運費
-          { wch: 12 },  // 7-11無運費
-          { wch: 12 },  // 7-11總雙數
-          { wch: 12 },  // 7-11業績
-          { wch: 12 },  // 7-11平均金額
-          { wch: 12 },  // 全家有運費
-          { wch: 12 },  // 全家無運費
-          { wch: 12 },  // 全家總雙數
-          { wch: 12 },  // 全家業績
-          { wch: 12 }   // 全家平均金額
-        ];
+        // 取得欄位數量
+        const colCount = Object.keys(summaryArray[0]).length;
+        // 全部欄位都設成寬度 12
+        wsSummary['!cols'] = Array(colCount).fill({ wch: 12 });
         
         XLSX.utils.book_append_sheet(wb, wsSummary, "統計");
       }

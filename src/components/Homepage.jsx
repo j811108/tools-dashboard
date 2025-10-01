@@ -10,7 +10,7 @@ const HomePage = () => {
     {
       id: 'excel-merge-tool',
       name: 'Excel merge tool',
-      description: 'Excel檔案合併工具',
+      description: '庫存表',
       path: '/excel-merge-tool',
       available: true
     },
