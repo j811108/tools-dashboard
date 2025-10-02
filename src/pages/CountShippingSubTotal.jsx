@@ -304,12 +304,17 @@ const CountShippingSubTotal = () => {
     
     Object.entries(mergedData).forEach(([sourceKey, data]) => {
       let currentMotherDate = null; // 記錄當前母單的日期
+      let currentIsRefund = false; // 追蹤當前母單是否為退貨
       
       data.rows.forEach(row => {
         // 如果是母單，更新當前日期
         if (row["Payment ID"]) {
           const paidAt = (row["Paid at"] || "").toString();
           currentMotherDate = paidAt ? paidAt.split(" ")[0] : null;
+
+          // 檢查退貨狀態
+          const financialStatus = (row["Financial Status"] || "").toString().toLowerCase();
+          currentIsRefund = financialStatus === "refunded" || financialStatus === "partially_refunded";
         }
         
         // 使用母單日期（子單跟隨母單）
@@ -321,6 +326,9 @@ const CountShippingSubTotal = () => {
             總業績: 0,
             總訂單數: 0,
             總雙數: 0,
+            退貨訂單數: 0,
+            退貨總雙數: 0,
+            退貨業績: 0,
             宅配有運費: 0,
             宅配無運費: 0,
             宅配總雙數: 0,
@@ -350,10 +358,15 @@ const CountShippingSubTotal = () => {
           summaryMap[date].總訂單數 += 1;
           summaryMap[date][`${sourceKey}業績`] += subtotal;
           
-          if (shipping > 0) {
-            summaryMap[date][`${sourceKey}有運費`] += 1;
+          if (currentIsRefund) {
+            summaryMap[date].退貨業績 += subtotal;
+            summaryMap[date].退貨訂單數 += 1;
           } else {
-            summaryMap[date][`${sourceKey}無運費`] += 1;
+            if (shipping > 0) {
+              summaryMap[date][`${sourceKey}有運費`] += 1;
+            } else {
+              summaryMap[date][`${sourceKey}無運費`] += 1;
+            }
           }
         }
         
@@ -366,6 +379,12 @@ const CountShippingSubTotal = () => {
           const lineitemQty = parseInt(lineitemQtyStr) || 0;
           summaryMap[date][`${sourceKey}總雙數`] += lineitemQty;
           summaryMap[date].總雙數 += lineitemQty;
+          
+          if (currentIsRefund) {
+            summaryMap[date].退貨總雙數 += lineitemQty;
+          } else {
+            // summaryMap[date].淨雙數 += lineitemQty;
+          }
         }
       });
     });
@@ -461,6 +480,9 @@ const CountShippingSubTotal = () => {
           總業績: item.總業績,
           總訂單數: item.總訂單數,
           總雙數: item.總雙數,
+          退貨訂單數: item.退貨訂單數,
+          退貨總雙數: item.退貨總雙數,
+          退貨業績: item.退貨業績,
           宅配有運費: item.宅配有運費,
           宅配無運費: item.宅配無運費,
           宅配總雙數: item.宅配總雙數,
@@ -720,11 +742,15 @@ const CountShippingSubTotal = () => {
                         <th className="border-b border-gray-200 px-2 py-2 text-right font-medium text-gray-700" rowSpan="2">總業績</th>
                         <th className="border-b border-gray-200 px-2 py-2 text-center font-medium text-gray-700" rowSpan="2">總訂單</th>
                         <th className="border-b border-gray-200 px-2 py-2 text-center font-medium text-gray-700" rowSpan="2">總雙數</th>
+                        <th className="border-b border-gray-200 px-2 py-2 text-center font-medium text-gray-700" colSpan="3">退貨</th>
                         <th className="border-b border-gray-200 px-2 py-2 text-center font-medium text-gray-700" colSpan="3">宅配</th>
                         <th className="border-b border-gray-200 px-2 py-2 text-center font-medium text-gray-700" colSpan="3">7-11</th>
                         <th className="border-b border-gray-200 px-2 py-2 text-center font-medium text-gray-700" colSpan="3">全家</th>
                       </tr>
                       <tr>
+                        <th className="border-b border-gray-200 px-2 py-2 text-center text-xs text-gray-600">雙數</th>
+                        <th className="border-b border-gray-200 px-2 py-2 text-center text-xs text-gray-600">金額</th>
+                        <th className="border-b border-gray-200 px-2 py-2 text-center text-xs text-gray-600">均價</th>
                         <th className="border-b border-gray-200 px-2 py-2 text-center text-xs text-gray-600">雙數</th>
                         <th className="border-b border-gray-200 px-2 py-2 text-center text-xs text-gray-600">業績</th>
                         <th className="border-b border-gray-200 px-2 py-2 text-center text-xs text-gray-600">均價</th>
@@ -749,6 +775,9 @@ const CountShippingSubTotal = () => {
                           <td className="border-b border-gray-100 px-2 py-2 text-center font-semibold">
                             {r.總雙數}
                           </td>
+                          <td className="border-b border-gray-100 px-2 py-2 text-center">{r.退貨總雙數}</td>
+                          <td className="border-b border-gray-100 px-2 py-2 text-center">${Math.round(r.退貨業績).toLocaleString()}</td>
+                          <td className="border-b border-gray-100 px-2 py-2 text-center">${r.退貨總雙數 > 0 ? (r.退貨業績 / r.退貨總雙數).toFixed(2) : '0.00'}</td>
                           <td className="border-b border-gray-100 px-2 py-2 text-center">{r.宅配總雙數}</td>
                           <td className="border-b border-gray-100 px-2 py-2 text-center">${Math.round(r.宅配業績).toLocaleString()}</td>
                           <td className="border-b border-gray-100 px-2 py-2 text-center">${r.宅配平均金額}</td>

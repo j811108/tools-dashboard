@@ -170,6 +170,7 @@ const MonthShippingCount = () => {
     // 處理新訂單資料
     Object.values(newOrders).forEach(orderData => {
       let currentMotherDate = null;
+      let currentIsRefund = false; // 追蹤當前母單是否為退貨
       
       orderData.rows.forEach(row => {
         // 如果是母單，更新當前日期
@@ -181,6 +182,10 @@ const MonthShippingCount = () => {
           
           const paidAt = (row["Paid at"] || "").toString();
           currentMotherDate = paidAt ? paidAt.split(" ")[0] : null;
+
+          // 檢查退貨狀態
+          const financialStatus = (row["Financial Status"] || "").toString().toLowerCase();
+          currentIsRefund = financialStatus === "refunded" || financialStatus === "partially_refunded";
         }
         
         // 使用母單日期（子單跟隨母單）
@@ -192,7 +197,13 @@ const MonthShippingCount = () => {
             月份: month,
             總業績: 0,
             總訂單數: 0,
-            總雙數: 0
+            總雙數: 0,
+            淨業績: 0,
+            淨訂單數: 0,
+            淨雙數: 0,
+            退貨訂單數: 0,
+            退貨總雙數: 0,
+            退貨業績: 0
           };
         }
         
@@ -203,6 +214,14 @@ const MonthShippingCount = () => {
           
           monthlyMap[month].總業績 += subtotal;
           monthlyMap[month].總訂單數 += 1;
+
+          if (currentIsRefund) {
+            monthlyMap[month].退貨業績 += subtotal;
+            monthlyMap[month].退貨訂單數 += 1;
+          } else {
+            monthlyMap[month].淨業績 += subtotal;
+            monthlyMap[month].淨訂單數 += 1;
+          }
         }
         
         // 計算總雙數（所有行，包括子單）
@@ -213,6 +232,11 @@ const MonthShippingCount = () => {
           const lineitemQtyStr = (row["Lineitem quantity"] || "0").toString();
           const lineitemQty = parseInt(lineitemQtyStr) || 0;
           monthlyMap[month].總雙數 += lineitemQty;
+          if (currentIsRefund) {
+            monthlyMap[month].退貨總雙數 += lineitemQty;
+          } else {
+            monthlyMap[month].淨雙數 += lineitemQty;
+          }
         }
       });
     });
@@ -220,13 +244,13 @@ const MonthShippingCount = () => {
     // 計算 AUP, UPT, AOV
     Object.values(monthlyMap).forEach(row => {
       // AUP = 總業績 / 總雙數
-      row.AUP = row.總雙數 > 0 ? parseFloat((row.總業績 / row.總雙數).toFixed(2)) : 0;
+      row.AUP = row.淨雙數 > 0 ? parseFloat((row.淨業績 / row.淨雙數).toFixed(2)) : 0;
       
       // UPT = 總雙數 / 總訂單數
-      row.UPT = row.總訂單數 > 0 ? parseFloat((row.總雙數 / row.總訂單數).toFixed(2)) : 0;
+      row.UPT = row.淨訂單數 > 0 ? parseFloat((row.淨雙數 / row.淨訂單數).toFixed(2)) : 0;
       
       // AOV = 總業績 / 總訂單數
-      row.AOV = row.總訂單數 > 0 ? parseFloat((row.總業績 / row.總訂單數).toFixed(2)) : 0;
+      row.AOV = row.淨訂單數 > 0 ? parseFloat((row.淨業績 / row.淨訂單數).toFixed(2)) : 0;
     });
 
     // 加入現有報表資料
@@ -239,9 +263,15 @@ const MonthShippingCount = () => {
             總業績: parseFloat(rowArray[1]) || 0,
             總訂單數: parseInt(rowArray[2]) || 0,
             總雙數: parseInt(rowArray[3]) || 0,
-            AUP: parseFloat(rowArray[4]) || 0,
-            UPT: parseFloat(rowArray[5]) || 0,
-            AOV: parseFloat(rowArray[6]) || 0
+            淨業績: parseFloat(rowArray[4]) || 0,
+            淨訂單數: parseInt(rowArray[5]) || 0,
+            淨雙數: parseInt(rowArray[6]) || 0,
+            退貨訂單數: parseInt(rowArray[7]) || 0,
+            退貨總雙數: parseInt(rowArray[8]) || 0,
+            退貨業績: parseFloat(rowArray[9]) || 0,
+            AUP: parseFloat(rowArray[10]) || 0,
+            UPT: parseFloat(rowArray[11]) || 0,
+            AOV: parseFloat(rowArray[12]) || 0
           };
         }
       });
@@ -274,6 +304,12 @@ const MonthShippingCount = () => {
           總業績: item.總業績,
           總訂單數: item.總訂單數,
           總雙數: item.總雙數,
+          淨業績: item.淨業績,
+          淨訂單數: item.淨訂單數,
+          淨雙數: item.淨雙數,
+          退貨訂單數: item.退貨訂單數,
+          退貨總雙數: item.退貨總雙數,
+          退貨業績: item.退貨業績,
           AUP: item.AUP,
           UPT: item.UPT,
           AOV: item.AOV
@@ -286,6 +322,12 @@ const MonthShippingCount = () => {
           { wch: 14 },  // 總業績
           { wch: 12 },  // 總訂單數
           { wch: 12 },  // 總雙數
+          { wch: 14 },  // 淨業績
+          { wch: 12 },  // 淨訂單數
+          { wch: 12 },  // 淨雙數
+          { wch: 12 },  // 退貨訂單數
+          { wch: 12 },  // 退貨總雙數
+          { wch: 14 },  // 退貨業績
           { wch: 12 },  // AUP
           { wch: 12 },  // UPT
           { wch: 12 }   // AOV
@@ -484,35 +526,52 @@ const MonthShippingCount = () => {
                   <table className="w-full text-sm">
                     <thead className="bg-gradient-to-r from-purple-50 to-indigo-50">
                       <tr>
-                        <th className="border-b border-gray-200 px-4 py-3 text-left font-medium text-gray-700">月份</th>
-                        <th className="border-b border-gray-200 px-4 py-3 text-right font-medium text-gray-700">總業績</th>
-                        <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-gray-700">總訂單</th>
-                        <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-gray-700">總雙數</th>
-                        <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-purple-700">AUP</th>
-                        <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-purple-700">UPT</th>
-                        <th className="border-b border-gray-200 px-4 py-3 text-center font-medium text-purple-700">AOV</th>
+                        <th className="border-b border-gray-200 px-3 py-3 text-left font-medium text-gray-700" rowSpan="2">月份</th>
+                        <th className="border-b border-gray-200 px-3 py-3 text-center font-medium text-green-700" colSpan="3">正常訂單</th>
+                        <th className="border-b border-gray-200 px-3 py-3 text-center font-medium text-red-700" colSpan="3">退貨訂單</th>
+                        <th className="border-b border-gray-200 px-3 py-3 text-center font-medium text-purple-700" colSpan="3">關鍵指標</th>
+                      </tr>
+                      <tr>
+                        <th className="border-b border-gray-200 px-2 py-2 text-right text-xs font-medium text-gray-600">業績</th>
+                        <th className="border-b border-gray-200 px-2 py-2 text-center text-xs font-medium text-gray-600">訂單</th>
+                        <th className="border-b border-gray-200 px-2 py-2 text-center text-xs font-medium text-gray-600">雙數</th>
+                        <th className="border-b border-gray-200 px-2 py-2 text-right text-xs font-medium text-gray-600">業績</th>
+                        <th className="border-b border-gray-200 px-2 py-2 text-center text-xs font-medium text-gray-600">訂單</th>
+                        <th className="border-b border-gray-200 px-2 py-2 text-center text-xs font-medium text-gray-600">雙數</th>
+                        <th className="border-b border-gray-200 px-2 py-2 text-center text-xs font-medium text-purple-600">AUP</th>
+                        <th className="border-b border-gray-200 px-2 py-2 text-center text-xs font-medium text-purple-600">UPT</th>
+                        <th className="border-b border-gray-200 px-2 py-2 text-center text-xs font-medium text-purple-600">AOV</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white">
                       {summaryData.map((r, i) => (
                         <tr key={i} className="hover:bg-gray-50 transition-colors">
-                          <td className="border-b border-gray-100 px-4 py-3 font-medium">{r.月份}</td>
-                          <td className="border-b border-gray-100 px-4 py-3 text-right font-semibold text-green-600">
-                            ${Math.round(r.總業績).toLocaleString()}
+                          <td className="border-b border-gray-100 px-3 py-3 font-medium">{r.月份}</td>
+                          <td className="border-b border-gray-100 px-2 py-3 text-right font-semibold text-green-600">
+                            ${Math.round(r.淨業績).toLocaleString()}
                           </td>
-                          <td className="border-b border-gray-100 px-4 py-3 text-center font-semibold">
-                            {r.總訂單數}
+                          <td className="border-b border-gray-100 px-2 py-3 text-center font-semibold">
+                            {r.淨訂單數}
                           </td>
-                          <td className="border-b border-gray-100 px-4 py-3 text-center font-semibold">
-                            {r.總雙數}
+                          <td className="border-b border-gray-100 px-2 py-3 text-center font-semibold">
+                            {r.淨雙數}
                           </td>
-                          <td className="border-b border-gray-100 px-4 py-3 text-center text-purple-600 font-medium">
+                          <td className="border-b border-gray-100 px-2 py-3 text-right font-semibold text-red-600">
+                            ${Math.round(r.退貨業績).toLocaleString()}
+                          </td>
+                          <td className="border-b border-gray-100 px-2 py-3 text-center text-red-600">
+                            {r.退貨訂單數}
+                          </td>
+                          <td className="border-b border-gray-100 px-2 py-3 text-center text-red-600">
+                            {r.退貨總雙數}
+                          </td>
+                          <td className="border-b border-gray-100 px-2 py-3 text-center text-purple-600 font-medium">
                             ${r.AUP}
                           </td>
-                          <td className="border-b border-gray-100 px-4 py-3 text-center text-purple-600 font-medium">
+                          <td className="border-b border-gray-100 px-2 py-3 text-center text-purple-600 font-medium">
                             {r.UPT}
                           </td>
-                          <td className="border-b border-gray-100 px-4 py-3 text-center text-purple-600 font-medium">
+                          <td className="border-b border-gray-100 px-2 py-3 text-center text-purple-600 font-medium">
                             ${r.AOV}
                           </td>
                         </tr>
