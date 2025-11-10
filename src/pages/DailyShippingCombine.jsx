@@ -95,6 +95,18 @@ const DailyShippingCombine = () => {
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
     
+    // 重置相關狀態
+    setExistingReport(null);
+    setHasExistingReport(false);
+    setNewOrdersBySource({
+      宅配: {},
+      "7-11": {},
+      全家: {},
+    });
+    setUnclassifiedOrders({});
+    setUploadedFiles([]);
+    setSummaryData([]);
+
     setIsProcessing(true);
     let processedCount = 0;
     
