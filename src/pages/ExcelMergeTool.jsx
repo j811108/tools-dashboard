@@ -317,11 +317,28 @@ const ExcelMergeTool = () => {
         
         return newRow;
       });
+      
+      // 將 inventoryMap 轉為陣列，先按年度倒序排列，再按商品代號排序
+      const sortedSummary = Object.values(inventoryMap).sort((a, b) => {
+        // 先比較年度（倒序）
+        const yearA = parseInt(a.year) || 0;
+        const yearB = parseInt(b.year) || 0;
+        
+        if (yearA !== yearB) {
+          return yearB - yearA; // 年度大的排在前面（倒序）
+        }
+        
+        // 年度相同時，按商品代號排序（使用自然排序）
+        return a.productCode.toString().localeCompare(b.productCode.toString(), undefined, {
+          numeric: true,
+          sensitivity: 'base'
+        });
+      });
 
       setProcessedData({
         headers: templateFile.headers,
         data: resultData,
-        summary: Object.values(inventoryMap),
+        summary: sortedSummary,
         extractedTables: extractedTables
       });
       
