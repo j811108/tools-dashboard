@@ -21,6 +21,7 @@ const CountShippingSubTotal = () => {
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [summaryData, setSummaryData] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [lastMergeResult, setLastMergeResult] = useState(null);
 
   const handleBackToHome = () => {
     navigate("/");
@@ -39,6 +40,7 @@ const CountShippingSubTotal = () => {
       setUnclassifiedOrders({});
       setUploadedFiles([]);
       setSummaryData([]);
+      setLastMergeResult(null);
     }
   };
 
@@ -75,6 +77,7 @@ const CountShippingSubTotal = () => {
         
         setExistingReport(reportData);
         setHasExistingReport(true);
+        setLastMergeResult(null);
         setIsProcessing(false);
         
         alert(`成功載入現有報表！\n包含分頁: ${Object.keys(reportData).join(', ')}`);
@@ -94,6 +97,7 @@ const CountShippingSubTotal = () => {
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
 
+    setLastMergeResult(null);
     setIsProcessing(true);
     let processedCount = 0;
 
@@ -410,9 +414,15 @@ const CountShippingSubTotal = () => {
     return { mergedData, summaryArray };
   };
 
+  const computeMerge = () => {
+    const result = mergeDataAndComputeSummary();
+    setLastMergeResult(result);
+    return result;
+  };
+
   // 預覽匯總
   const handleGeneratePreview = () => {
-    const { summaryArray } = mergeDataAndComputeSummary();
+    const { summaryArray } = computeMerge();
     setSummaryData(summaryArray);
   };
 
@@ -420,7 +430,7 @@ const CountShippingSubTotal = () => {
   const handleExportExcel = () => {
     try {
       const wb = XLSX.utils.book_new();
-      const { mergedData, summaryArray } = mergeDataAndComputeSummary();
+      const { mergedData, summaryArray } = lastMergeResult ?? mergeDataAndComputeSummary();
 
       // 為每個來源建立分頁（原始資料）
       ["宅配", "7-11", "全家"].forEach(sourceKey => {
