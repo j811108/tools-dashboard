@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Upload, Download, FileSpreadsheet, ArrowLeft, Trash2, Eye, DollarSign, TrendingUp, FileUp, Plus } from "lucide-react";
-import Papa from "papaparse";
 import * as XLSX from "xlsx";
+import { parseCSVFile, groupOrdersByName, classifyOrderSource } from "../utils/orderUtils";
 
 const CountShippingSubTotal = () => {
   const navigate = useNavigate();
@@ -101,35 +101,13 @@ const CountShippingSubTotal = () => {
     setIsProcessing(true);
     let processedCount = 0;
 
-    const parseFile = (file) =>
-      new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          Papa.parse(reader.result, {
-            header: true,
-            skipEmptyLines: false,
-            dynamicTyping: false,
-            complete: (result) => resolve({ file, result }),
-            error: reject,
-          });
-        };
-        reader.onerror = reject;
-        reader.readAsText(file, "UTF-8");
-      });
-
     for (const file of files) {
       try {
-        const { result } = await parseFile(file);
+        const { result } = await parseCSVFile(file);
         const header = result.meta.fields || [];
         const rows = result.data || [];
 
-        const orderGroups = {};
-        rows.forEach((row) => {
-          const orderName = row["Name"];
-          if (!orderName) return;
-          if (!orderGroups[orderName]) orderGroups[orderName] = [];
-          orderGroups[orderName].push(row);
-        });
+        const orderGroups = groupOrdersByName(rows);
 
         setNewOrdersBySource((prev) => {
           const newState = {
@@ -140,12 +118,7 @@ const CountShippingSubTotal = () => {
           Object.entries(orderGroups).forEach(([orderName, orderRows]) => {
             const motherRow = orderRows.find((r) => r["Payment ID"]);
             if (motherRow) {
-              const rawTag = (motherRow["Tags"] || "").toString();
-              let sourceType = null;
-              if (rawTag.includes("宅配")) sourceType = "宅配";
-              else if (rawTag.includes("全家")) sourceType = "全家";
-              else if (rawTag.includes("7-11") || rawTag.includes("711"))
-                sourceType = "7-11";
+              const sourceType = classifyOrderSource(motherRow);
               if (sourceType && !newState[sourceType][orderName]) {
                 newState[sourceType][orderName] = {
                   header,
@@ -162,17 +135,7 @@ const CountShippingSubTotal = () => {
           const newUnclassified = { ...prev };
           Object.entries(orderGroups).forEach(([orderName, orderRows]) => {
             const motherRow = orderRows.find((r) => r["Payment ID"]);
-            let isClassified = false;
-            if (motherRow) {
-              const rawTag = (motherRow["Tags"] || "").toString();
-              if (
-                rawTag.includes("宅配") ||
-                rawTag.includes("全家") ||
-                rawTag.includes("7-11") ||
-                rawTag.includes("711")
-              )
-                isClassified = true;
-            }
+            const isClassified = classifyOrderSource(motherRow) !== null;
             if (!isClassified && !newUnclassified[orderName]) {
               newUnclassified[orderName] = {
                 header,

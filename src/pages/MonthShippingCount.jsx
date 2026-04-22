@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Upload, Download, Calendar, ArrowLeft, Trash2, Eye, TrendingUp, FileUp, Plus } from "lucide-react";
-import Papa from "papaparse";
 import * as XLSX from "xlsx";
+import { parseCSVFile, groupOrdersByName } from "../utils/orderUtils";
 
 const MonthShippingCount = () => {
   const navigate = useNavigate();
@@ -75,76 +75,43 @@ const MonthShippingCount = () => {
   };
 
   // 上傳新的 CSV 資料
-  const handleNewDataUpload = (event) => {
+  const handleNewDataUpload = async (event) => {
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
-    
+
     setIsProcessing(true);
-    let processedCount = 0;
-    
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const csvText = reader.result;
-        Papa.parse(csvText, {
-          header: true,
-          skipEmptyLines: false,
-          dynamicTyping: false,
-          complete: (result) => {
-            const header = result.meta.fields || [];
-            const rows = result.data || [];
 
-            // 按 Name 分組
-            const orderGroups = {};
-            rows.forEach((row) => {
-              const orderName = row["Name"];
-              if (!orderName) return;
-              
-              if (!orderGroups[orderName]) {
-                orderGroups[orderName] = [];
-              }
-              orderGroups[orderName].push(row);
-            });
+    for (const file of files) {
+      try {
+        const { result } = await parseCSVFile(file);
+        const rows = result.data || [];
+        const header = result.meta.fields || [];
+        const orderGroups = groupOrdersByName(rows);
 
-            // 儲存訂單資料（不分來源）
-            setNewOrders((prev) => {
-              const newState = { ...prev };
-
-              Object.entries(orderGroups).forEach(([orderName, orderRows]) => {
-                if (!newState[orderName]) {
-                  newState[orderName] = {
-                    header: header,
-                    rows: orderRows,
-                    filename: file.name
-                  };
-                }
-              });
-
-              return newState;
-            });
-
-            setUploadedFiles((prev) => [
-              ...prev,
-              { name: file.name, rows: rows.length },
-            ]);
-            
-            processedCount++;
-            if (processedCount === files.length) {
-              setIsProcessing(false);
+        setNewOrders((prev) => {
+          const newState = { ...prev };
+          Object.entries(orderGroups).forEach(([orderName, orderRows]) => {
+            if (!newState[orderName]) {
+              newState[orderName] = {
+                header,
+                rows: orderRows,
+                filename: file.name,
+              };
             }
-          },
-          error: (error) => {
-            console.error(`解析檔案 ${file.name} 時發生錯誤:`, error);
-            processedCount++;
-            if (processedCount === files.length) {
-              setIsProcessing(false);
-            }
-          }
+          });
+          return newState;
         });
-      };
-      reader.readAsText(file, "UTF-8");
-    });
 
+        setUploadedFiles((prev) => [
+          ...prev,
+          { name: file.name, rows: rows.length },
+        ]);
+      } catch (error) {
+        console.error(`解析檔案 ${file.name} 時發生錯誤:`, error);
+      }
+    }
+
+    setIsProcessing(false);
     event.target.value = null;
   };
 
