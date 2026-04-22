@@ -1,9 +1,12 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Upload, Download, FileSpreadsheet, ArrowLeft, Trash2, Eye, DollarSign, TrendingUp, FileUp, Plus } from "lucide-react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 
 const CountShippingSubTotal = () => {
+  const navigate = useNavigate();
+
   // 儲存現有報表的資料
   const [existingReport, setExistingReport] = useState(null);
   const [hasExistingReport, setHasExistingReport] = useState(false);
@@ -20,7 +23,7 @@ const CountShippingSubTotal = () => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleBackToHome = () => {
-    window.history.back();
+    navigate("/");
   };
 
   // 清除所有資料
@@ -87,108 +90,109 @@ const CountShippingSubTotal = () => {
   };
 
   // 上傳新的 CSV 資料
-  const handleNewDataUpload = (event) => {
+  const handleNewDataUpload = async (event) => {
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
-    
+
     setIsProcessing(true);
     let processedCount = 0;
-    
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const csvText = reader.result;
-        Papa.parse(csvText, {
-          header: true,
-          skipEmptyLines: false,
-          dynamicTyping: false,
-          complete: (result) => {
-            const header = result.meta.fields || [];
-            const rows = result.data || [];
 
-            // 按 Name 分組
-            const orderGroups = {};
-            rows.forEach((row) => {
-              const orderName = row["Name"];
-              if (!orderName) return;
-              
-              if (!orderGroups[orderName]) {
-                orderGroups[orderName] = [];
-              }
-              orderGroups[orderName].push(row);
-            });
+    const parseFile = (file) =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          Papa.parse(reader.result, {
+            header: true,
+            skipEmptyLines: false,
+            dynamicTyping: false,
+            complete: (result) => resolve({ file, result }),
+            error: reject,
+          });
+        };
+        reader.onerror = reject;
+        reader.readAsText(file, "UTF-8");
+      });
 
-            // 根據每單的 Tags 分類整個訂單
-            setNewOrdersBySource((prev) => {
-              const newState = { ...prev };
-              const newUnclassified = { ...unclassifiedOrders };
+    for (const file of files) {
+      try {
+        const { result } = await parseFile(file);
+        const header = result.meta.fields || [];
+        const rows = result.data || [];
 
-              Object.entries(orderGroups).forEach(([orderName, orderRows]) => {
-                // 找出母單
-                const motherRow = orderRows.find(r => r["Payment ID"]);
-                
-                if (motherRow) {
-                  const rawTag = (motherRow["Tags"] || "").toString();
-                  let sourceType = null;
-                  
-                  if (rawTag.includes("宅配")) {
-                    sourceType = "宅配";
-                  } else if (rawTag.includes("全家")) {
-                    sourceType = "全家";
-                  } else if (rawTag.includes("7-11") || rawTag.includes("711")) {
-                    sourceType = "7-11";
-                  }
-                  
-                  if (sourceType) {
-                    if (!newState[sourceType][orderName]) {
-                      newState[sourceType][orderName] = {
-                        header: header,
-                        rows: orderRows,
-                        filename: file.name
-                      };
-                    }
-                  } else {
-                    newUnclassified[orderName] = {
-                      header: header,
-                      rows: orderRows,
-                      filename: file.name
-                    };
-                  }
-                } else {
-                  newUnclassified[orderName] = {
-                    header: header,
-                    rows: orderRows,
-                    filename: file.name
-                  };
-                }
-              });
-
-              setUnclassifiedOrders(newUnclassified);
-              return newState;
-            });
-
-            setUploadedFiles((prev) => [
-              ...prev,
-              { name: file.name, rows: rows.length },
-            ]);
-            
-            processedCount++;
-            if (processedCount === files.length) {
-              setIsProcessing(false);
-            }
-          },
-          error: (error) => {
-            console.error(`解析檔案 ${file.name} 時發生錯誤:`, error);
-            processedCount++;
-            if (processedCount === files.length) {
-              setIsProcessing(false);
-            }
-          }
+        const orderGroups = {};
+        rows.forEach((row) => {
+          const orderName = row["Name"];
+          if (!orderName) return;
+          if (!orderGroups[orderName]) orderGroups[orderName] = [];
+          orderGroups[orderName].push(row);
         });
-      };
-      reader.readAsText(file, "UTF-8");
-    });
 
+        setNewOrdersBySource((prev) => {
+          const newState = {
+            宅配: { ...prev.宅配 },
+            "7-11": { ...prev["7-11"] },
+            全家: { ...prev.全家 },
+          };
+          Object.entries(orderGroups).forEach(([orderName, orderRows]) => {
+            const motherRow = orderRows.find((r) => r["Payment ID"]);
+            if (motherRow) {
+              const rawTag = (motherRow["Tags"] || "").toString();
+              let sourceType = null;
+              if (rawTag.includes("宅配")) sourceType = "宅配";
+              else if (rawTag.includes("全家")) sourceType = "全家";
+              else if (rawTag.includes("7-11") || rawTag.includes("711"))
+                sourceType = "7-11";
+              if (sourceType && !newState[sourceType][orderName]) {
+                newState[sourceType][orderName] = {
+                  header,
+                  rows: orderRows,
+                  filename: file.name,
+                };
+              }
+            }
+          });
+          return newState;
+        });
+
+        setUnclassifiedOrders((prev) => {
+          const newUnclassified = { ...prev };
+          Object.entries(orderGroups).forEach(([orderName, orderRows]) => {
+            const motherRow = orderRows.find((r) => r["Payment ID"]);
+            let isClassified = false;
+            if (motherRow) {
+              const rawTag = (motherRow["Tags"] || "").toString();
+              if (
+                rawTag.includes("宅配") ||
+                rawTag.includes("全家") ||
+                rawTag.includes("7-11") ||
+                rawTag.includes("711")
+              )
+                isClassified = true;
+            }
+            if (!isClassified && !newUnclassified[orderName]) {
+              newUnclassified[orderName] = {
+                header,
+                rows: orderRows,
+                filename: file.name,
+              };
+            }
+          });
+          return newUnclassified;
+        });
+
+        setUploadedFiles((prev) => [
+          ...prev,
+          { name: file.name, rows: rows.length },
+        ]);
+
+        processedCount++;
+      } catch (error) {
+        console.error(`解析檔案 ${file.name} 時發生錯誤:`, error);
+        processedCount++;
+      }
+    }
+
+    setIsProcessing(false);
     event.target.value = null;
   };
 
