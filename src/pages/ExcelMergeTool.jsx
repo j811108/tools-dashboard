@@ -266,8 +266,14 @@ const ExcelMergeTool = () => {
                 官網: 0,
                 平台: 0
               };
+            } else {
+              if (productName) inventoryMap[key].productName = productName;
+              if (sizeName) inventoryMap[key].sizeName = sizeName;
+              if (seasonName) inventoryMap[key].seasonName = seasonName;
+              if (year) inventoryMap[key].year = year;
+              if (price) inventoryMap[key].price = price;
             }
-            
+
             // 根據表格來源類型設定庫存
             if (table.sourceType === '總倉') {
               inventoryMap[key].總倉 = inventory;
@@ -388,23 +394,6 @@ const ExcelMergeTool = () => {
       { wch: 12 }, // 含稅定價
       { wch: 20 } // 備註
     ];
-
-    // === 設定標題列樣式 === <sheetJS不支援樣式設定>
-    const range = XLSX.utils.decode_range(summaryWS['!ref']); // 取得工作表範圍
-    for (let C = range.s.c; C <= range.e.c; C++) {
-      const cellAddress = XLSX.utils.encode_cell({ r: 0, c: C }); // 標題列第 0 列
-      if (!summaryWS[cellAddress]) continue;
-
-      // 設定樣式：加粗 + 灰色背景
-      summaryWS[cellAddress].s = {
-        font: { bold: true, color: { rgb: "000000" } },
-        fill: {
-          patternType: "solid",
-          fgColor: { rgb: "D9D9D9" } // 淺灰色背景
-        },
-        alignment: { horizontal: "center", vertical: "center" }
-      };
-    }
 
     XLSX.utils.book_append_sheet(wb, summaryWS, '庫存匯總');
     
@@ -627,7 +616,7 @@ const ExcelMergeTool = () => {
                         <tr key={rowIndex}>
                           <td className="border px-2 py-1">{rowData.data[0] || ''}</td>
                           <td className="border px-2 py-1">{rowData.data[1] || ''}</td>
-                          <td className="border px-2 py-1">{rowData.data[10] || ''}</td>
+                          <td className="border px-2 py-1">{rowData.data[11] || ''}</td>
                           <td className="border px-2 py-1">{rowData.data[12] || ''}</td>
                           <td className="border px-2 py-1">{rowData.data[13] || ''}</td>
                           <td className="border px-2 py-1">{rowData.data[15] || ''}</td>
