@@ -1,48 +1,48 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+// 工具
+const tools = [
+  {
+    id: 'excel-merge-tool',
+    name: 'Excel merge tool',
+    description: '庫存表',
+    path: '/excel-merge-tool',
+    available: true
+  },
+  {
+    id: 'daily-shipping-combine',
+    name: 'Daily Shipping Combine',
+    description: '每日出貨合併工具',
+    path: '/daily-shipping-combine',
+    available: true
+  },
+  {
+    id: 'count-shipping-subtotal',
+    name: 'Count Shipping Subtotal',
+    description: '出貨明細計算業績',
+    path: '/count-shipping-subtotal',
+    available: true
+  },
+  {
+    id: 'month-shipping-count',
+    name: 'Month Shipping Count',
+    description: '每月出貨統計',
+    path: '/month-shipping-count',
+    available: true
+  },
+  {
+    id: 'tester',
+    name: 'Tester',
+    description: 'TEST',
+    path: '/tester',
+    available: false
+  }
+];
+
 const HomePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
-
-  // 工具
-  const tools = [
-    {
-      id: 'excel-merge-tool',
-      name: 'Excel merge tool',
-      description: '庫存表',
-      path: '/excel-merge-tool',
-      available: true
-    },
-    {
-      id: 'daily-shipping-combine',
-      name: 'Daily Shipping Combine',
-      description: '每日出貨合併工具',
-      path: '/daily-shipping-combine',
-      available: true
-    },
-    {
-      id: 'count-shipping-subtotal',
-      name: 'Count Shipping Subtotal',
-      description: '出貨明細計算業績',
-      path: '/count-shipping-subtotal',
-      available: true
-    },
-    {
-      id: 'month-shipping-count',
-      name: 'Month Shipping Count',
-      description: '每月出貨統計',
-      path: '/month-shipping-count',
-      available: true
-    },
-    {
-      id: 'tester',
-      name: 'Tester',
-      description: 'TEST',
-      path: '/tester',
-      available: true
-    }
-  ];
 
   // 搜尋過濾邏輯
   const filteredTools = useMemo(() => {

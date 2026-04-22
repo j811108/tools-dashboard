@@ -23,7 +23,7 @@ const Tester = () => {
               返回工具首頁
             </button>
             <h1 className="text-xl font-semibold text-gray-900">
-              PDF Converter
+              Tester
             </h1>
             <div></div>
           </div>
