@@ -1,9 +1,11 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Upload, Download, Calendar, ArrowLeft, Trash2, Eye, TrendingUp, FileUp, Plus } from "lucide-react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 
 const MonthShippingCount = () => {
+  const navigate = useNavigate();
   // 儲存現有報表的資料
   const [existingReport, setExistingReport] = useState(null);
   const [hasExistingReport, setHasExistingReport] = useState(false);
@@ -15,7 +17,7 @@ const MonthShippingCount = () => {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleBackToHome = () => {
-    window.history.back();
+    navigate("/");
   };
 
   // 清除所有資料
@@ -169,29 +171,29 @@ const MonthShippingCount = () => {
     
     // 處理新訂單資料
     Object.values(newOrders).forEach(orderData => {
+      // Find the mother row first to check for duplicates
+      const motherRow = orderData.rows.find(r => r["Payment ID"]);
+
+      // Skip the entire order if the mother's Payment ID is already in existing report
+      if (motherRow && existingPaymentIds.has(motherRow["Payment ID"])) {
+        return;
+      }
+
       let currentMotherDate = null;
-      let currentIsRefund = false; // 追蹤當前母單是否為退貨
-      
+      let currentIsRefund = false;
+
       orderData.rows.forEach(row => {
-        // 如果是母單，更新當前日期
         if (row["Payment ID"]) {
-          // 檢查是否重複
-          if (existingPaymentIds.has(row["Payment ID"])) {
-            return; // 跳過重複的訂單
-          }
-          
           const paidAt = (row["Paid at"] || "").toString();
           currentMotherDate = paidAt ? paidAt.split(" ")[0] : null;
 
-          // 檢查退貨狀態
           const financialStatus = (row["Financial Status"] || "").toString().toLowerCase();
           currentIsRefund = financialStatus === "refunded" || financialStatus === "partially_refunded";
         }
-        
-        // 使用母單日期（子單跟隨母單）
+
         const date = currentMotherDate || "未知日期";
-        const month = date.substring(0, 7); // 取 YYYY-MM
-        
+        const month = date.substring(0, 7);
+
         if (!monthlyMap[month]) {
           monthlyMap[month] = {
             月份: month,
@@ -206,12 +208,11 @@ const MonthShippingCount = () => {
             退貨業績: 0
           };
         }
-        
-        // 計算母單資料
+
         if (row["Payment ID"]) {
           const subtotalStr = (row["Subtotal"] || "0").toString().replace(/,/g, '');
           const subtotal = parseFloat(subtotalStr) || 0;
-          
+
           monthlyMap[month].總業績 += subtotal;
           monthlyMap[month].總訂單數 += 1;
 
@@ -223,11 +224,10 @@ const MonthShippingCount = () => {
             monthlyMap[month].淨訂單數 += 1;
           }
         }
-        
-        // 計算總雙數（所有行，包括子單）
+
         const lineitemPriceStr = (row["Lineitem price"] || "0").toString().replace(/,/g, '');
         const lineitemPrice = parseFloat(lineitemPriceStr) || 0;
-        
+
         if (lineitemPrice > 0) {
           const lineitemQtyStr = (row["Lineitem quantity"] || "0").toString();
           const lineitemQty = parseInt(lineitemQtyStr) || 0;
