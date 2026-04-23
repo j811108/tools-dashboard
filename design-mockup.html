@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tools Dashboard — Design Mockup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Design Tokens ───────────────────────────────────────── */
+    :root {
+      --bg:          #0d0d10;
+      --surface:     #16161c;
+      --surface-2:   #1d1d26;
+      --border:      #2a2a38;
+      --border-hover:#3f3f58;
+      --amber:       #f0a500;
+      --amber-dim:   rgba(240,165,0,0.12);
+      --amber-glow:  rgba(240,165,0,0.06);
+      --text-primary:#e8e8f0;
+      --text-secondary:#888899;
+      --text-muted:  #55555f;
+      --green:       #34d399;
+      --green-dim:   rgba(52,211,153,0.12);
+      --yellow:      #fbbf24;
+      --yellow-dim:  rgba(251,191,36,0.12);
+      --radius-sm:   6px;
+      --radius-md:   10px;
+      --radius-lg:   14px;
+    }
+
+    /* ── Reset ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Sora', sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.6;
+      /* Subtle dot grid background */
+      background-image: radial-gradient(circle, #2a2a38 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+
+    /* ── Layout ──────────────────────────────────────────────── */
+    .wrapper {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ──────────────────────────────────────────────── */
+    header {
+      border-bottom: 1px solid var(--border);
+      background: rgba(13,13,16,0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 32px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--amber);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .logo-icon svg { display: block; }
+
+    .logo-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      color: var(--text-primary);
+    }
+
+    .logo-text span {
+      color: var(--amber);
+    }
+
+    .header-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.03em;
+    }
+
+    /* ── Main ────────────────────────────────────────────────── */
+    main {
+      flex: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 64px 32px;
+      width: 100%;
+    }
+
+    /* ── Hero ────────────────────────────────────────────────── */
+    .hero {
+      margin-bottom: 48px;
+    }
+
+    .hero-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hero-label::before {
+      content: '';
+      display: inline-block;
+      width: 20px;
+      height: 1px;
+      background: var(--amber);
+    }
+
+    .hero-title {
+      font-size: clamp(28px, 4vw, 42px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text-primary);
+      line-height: 1.15;
+      margin-bottom: 10px;
+    }
+
+    .hero-sub {
+      font-size: 15px;
+      color: var(--text-secondary);
+      font-weight: 300;
+    }
+
+    /* ── Search ──────────────────────────────────────────────── */
+    .search-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
+    .search-box {
+      position: relative;
+      flex: 1;
+      max-width: 320px;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 10px 14px 10px 40px;
+      font-family: 'Sora', sans-serif;
+      font-size: 13px;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .search-input::placeholder { color: var(--text-muted); }
+
+    .search-input:focus {
+      border-color: var(--amber);
+      box-shadow: 0 0 0 3px var(--amber-dim);
+    }
+
+    .tool-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .tool-count strong {
+      color: var(--amber);
+      font-weight: 600;
+    }
+
+    /* ── Grid ────────────────────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 16px;
+    }
+
+    /* ── Card ────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.22s, transform 0.18s, box-shadow 0.22s;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+    }
+
+    /* Ambient glow on hover */
+    .card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: var(--amber-glow);
+      opacity: 0;
+      transition: opacity 0.3s;
+      border-radius: inherit;
+    }
+
+    .card:hover {
+      border-color: var(--border-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px var(--border-hover);
+    }
+
+    .card:hover::before { opacity: 1; }
+
+    .card.available:hover {
+      border-color: rgba(240,165,0,0.4);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(240,165,0,0.2);
+    }
+
+    .card.unavailable {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    /* Accent bar on left edge */
+    .card-accent {
+      position: absolute;
+      left: 0;
+      top: 20%;
+      bottom: 20%;
+      width: 2px;
+      border-radius: 0 2px 2px 0;
+      background: var(--amber);
+      opacity: 0;
+      transition: opacity 0.22s, top 0.22s, bottom 0.22s;
+    }
+
+    .card.available:hover .card-accent {
+      opacity: 1;
+      top: 15%;
+      bottom: 15%;
+    }
+
+    /* Card top row */
+    .card-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .card-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--amber);
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .card:hover .card-icon {
+      background: var(--amber-dim);
+      border-color: rgba(240,165,0,0.3);
+    }
+
+    .card-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 9px;
+      border-radius: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+
+    .status-available {
+      background: var(--green-dim);
+      color: var(--green);
+      border: 1px solid rgba(52,211,153,0.2);
+    }
+
+    .status-dev {
+      background: var(--yellow-dim);
+      color: var(--yellow);
+      border: 1px solid rgba(251,191,36,0.2);
+    }
+
+    .status-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* Card body */
+    .card-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      line-height: 1.3;
+    }
+
+    .card-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-weight: 300;
+    }
+
+    /* Card arrow indicator */
+    .card-footer {
+      margin-top: auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+
+    .card-arrow {
+      color: var(--text-muted);
+      transform: translateX(-4px);
+      opacity: 0;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+
+    .card.available:hover .card-arrow {
+      transform: translateX(0);
+      opacity: 1;
+      color: var(--amber);
+    }
+
+    /* ── Empty State ─────────────────────────────────────────── */
+    .empty {
+      text-align: center;
+      padding: 80px 20px;
+    }
+
+    .empty-icon {
+      width: 48px;
+      height: 48px;
+      margin: 0 auto 20px;
+      color: var(--text-muted);
+    }
+
+    .empty-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    /* ── Footer ──────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 20px 32px;
+      text-align: center;
+    }
+
+    .footer-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Annotation overlays (design mockup only) ─────────────── */
+    .annotation {
+      position: fixed;
+      right: 20px;
+      background: rgba(240,165,0,0.1);
+      border: 1px dashed rgba(240,165,0,0.4);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--amber);
+      max-width: 200px;
+      line-height: 1.5;
+      pointer-events: none;
+    }
+
+    .annotation-1 { top: 80px; }
+    .annotation-2 { top: 220px; }
+    .annotation-3 { top: 360px; }
+
+    .annotation::before {
+      content: '// ';
+      opacity: 0.5;
+    }
+
+    /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      main { padding: 40px 20px; }
+      .header-inner { padding: 0 20px; }
+      .search-row { flex-direction: column; align-items: stretch; }
+      .search-box { max-width: 100%; }
+      .annotation { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+
+    <!-- Header -->
+    <header>
+      <div class="header-inner">
+        <div class="logo">
+          <div class="logo-icon">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <rect x="1" y="1" width="5" height="5" rx="1" fill="#0d0d10"/>
+              <rect x="8" y="1" width="5" height="5" rx="1" fill="#0d0d10"/>
+              <rect x="1" y="8" width="5" height="5" rx="1" fill="#0d0d10"/>
+              <rect x="8" y="8" width="5" height="5" rx="1" fill="#0d0d10" opacity="0.4"/>
+            </svg>
+          </div>
+          <span class="logo-text">tools<span>.</span>dashboard</span>
+        </div>
+        <span class="header-meta">v2.0 · 2026</span>
+      </div>
+    </header>
+
+    <!-- Main -->
+    <main>
+
+      <!-- Hero -->
+      <div class="hero">
+        <div class="hero-label">工具平台</div>
+        <h1 class="hero-title">Tools Dashboard</h1>
+        <p class="hero-sub">選擇工具以開始操作</p>
+      </div>
+
+      <!-- Search + count -->
+      <div class="search-row">
+        <div class="search-box">
+          <span class="search-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+          </span>
+          <input class="search-input" type="text" placeholder="搜尋工具..." />
+        </div>
+        <span class="tool-count">共 <strong>4</strong> 個可用工具</span>
+      </div>
+
+      <!-- Grid -->
+      <div class="grid">
+
+        <!-- Card 1 -->
+        <div class="card available">
+          <div class="card-accent"></div>
+          <div class="card-header">
+            <div class="card-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <line x1="10" y1="9" x2="8" y2="9"/>
+              </svg>
+            </div>
+            <span class="card-status status-available">
+              <span class="status-dot"></span>可用
+            </span>
+          </div>
+          <div>
+            <div class="card-name">Excel Merge Tool</div>
+            <div class="card-desc">庫存表</div>
+          </div>
+          <div class="card-footer">
+            <span class="card-id">excel-merge-tool</span>
+            <span class="card-arrow">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="card available">
+          <div class="card-accent"></div>
+          <div class="card-header">
+            <div class="card-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1" y="3" width="15" height="13" rx="2"/>
+                <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+                <circle cx="5.5" cy="18.5" r="2.5"/>
+                <circle cx="18.5" cy="18.5" r="2.5"/>
+              </svg>
+            </div>
+            <span class="card-status status-available">
+              <span class="status-dot"></span>可用
+            </span>
+          </div>
+          <div>
+            <div class="card-name">Daily Shipping Combine</div>
+            <div class="card-desc">每日出貨合併工具</div>
+          </div>
+          <div class="card-footer">
+            <span class="card-id">daily-shipping-combine</span>
+            <span class="card-arrow">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="card available">
+          <div class="card-accent"></div>
+          <div class="card-header">
+            <div class="card-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23"/>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+            </div>
+            <span class="card-status status-available">
+              <span class="status-dot"></span>可用
+            </span>
+          </div>
+          <div>
+            <div class="card-name">Count Shipping Subtotal</div>
+            <div class="card-desc">出貨明細計算業績</div>
+          </div>
+          <div class="card-footer">
+            <span class="card-id">count-shipping-subtotal</span>
+            <span class="card-arrow">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="card available">
+          <div class="card-accent"></div>
+          <div class="card-header">
+            <div class="card-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+            </div>
+            <span class="card-status status-available">
+              <span class="status-dot"></span>可用
+            </span>
+          </div>
+          <div>
+            <div class="card-name">Month Shipping Count</div>
+            <div class="card-desc">每月出貨統計</div>
+          </div>
+          <div class="card-footer">
+            <span class="card-id">month-shipping-count</span>
+            <span class="card-arrow">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </span>
+          </div>
+        </div>
+
+        <!-- Card 5 — unavailable -->
+        <div class="card unavailable">
+          <div class="card-header">
+            <div class="card-icon" style="color: var(--text-muted);">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.5 10c-.83 0-1.5-.67-1.5-1.5v-5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5z"/>
+                <path d="M20.5 10H19V8.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                <path d="M9.5 14c.83 0 1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5S8 21.33 8 20.5v-5c0-.83.67-1.5 1.5-1.5z"/>
+                <path d="M3.5 14H5v1.5c0 .83-.67 1.5-1.5 1.5S2 16.33 2 15.5 2.67 14 3.5 14z"/>
+                <path d="M14 14.5c0-.83.67-1.5 1.5-1.5h5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-5c-.83 0-1.5-.67-1.5-1.5z"/>
+                <path d="M15.5 19H14v1.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5-.67-1.5-1.5-1.5z"/>
+                <path d="M10 9.5C10 8.67 9.33 8 8.5 8h-5C2.67 8 2 8.67 2 9.5S2.67 11 3.5 11h5c.83 0 1.5-.67 1.5-1.5z"/>
+                <path d="M8.5 5H10V3.5C10 2.67 9.33 2 8.5 2S7 2.67 7 3.5 7.67 5 8.5 5z"/>
+              </svg>
+            </div>
+            <span class="card-status status-dev">
+              <span class="status-dot"></span>開發中
+            </span>
+          </div>
+          <div>
+            <div class="card-name" style="color: var(--text-secondary);">Tester</div>
+            <div class="card-desc">TEST</div>
+          </div>
+          <div class="card-footer">
+            <span class="card-id">tester</span>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+      <span class="footer-text">tools.dashboard · 工具平台</span>
+    </footer>
+
+  </div>
+
+  <!-- Design Annotations (remove in production) -->
+  <div class="annotation annotation-1">Dark bg + dot grid<br>creates depth without noise</div>
+  <div class="annotation annotation-2">Sticky header with<br>blur backdrop</div>
+  <div class="annotation annotation-3">Amber accent on hover —<br>left bar + glow + arrow reveal</div>
+
+</body>
+</html>

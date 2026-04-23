@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inner Pages — Design Mockup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Tokens ──────────────────────────────────────────────── */
+    :root {
+      --bg:            #0d0d10;
+      --surface:       #16161c;
+      --surface-2:     #1d1d26;
+      --surface-3:     #22222e;
+      --border:        #2a2a38;
+      --border-hover:  #3f3f58;
+      --amber:         #f0a500;
+      --amber-dim:     rgba(240,165,0,0.10);
+      --amber-border:  rgba(240,165,0,0.25);
+      --teal:          #2dd4bf;
+      --teal-dim:      rgba(45,212,191,0.10);
+      --teal-border:   rgba(45,212,191,0.25);
+      --green:         #34d399;
+      --green-dim:     rgba(52,211,153,0.10);
+      --red:           #f87171;
+      --red-dim:       rgba(248,113,113,0.10);
+      --text-primary:  #e8e8f0;
+      --text-secondary:#888899;
+      --text-muted:    #55555f;
+      --radius-sm:     6px;
+      --radius-md:     10px;
+      --radius-lg:     14px;
+      --radius-xl:     18px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Sora', sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      background-image: radial-gradient(circle, #2a2a38 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+
+    /* ── Tab switcher (mockup UI) ────────────────────────────── */
+    .mockup-tabs {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 200;
+      display: flex;
+      gap: 4px;
+      background: rgba(22,22,28,0.95);
+      border: 1px solid var(--border);
+      border-radius: 40px;
+      padding: 4px;
+      backdrop-filter: blur(12px);
+    }
+
+    .mockup-tab {
+      padding: 6px 16px;
+      border-radius: 40px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
+      cursor: pointer;
+      border: none;
+      background: none;
+      transition: color 0.18s, background 0.18s;
+    }
+
+    .mockup-tab:hover { color: var(--text-secondary); }
+
+    .mockup-tab.active {
+      background: var(--amber);
+      color: #0d0d10;
+    }
+
+    /* ── Shared Header ───────────────────────────────────────── */
+    .hdr {
+      border-bottom: 1px solid var(--border);
+      background: rgba(13,13,16,0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .hdr-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 32px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      transition: color 0.18s, background 0.18s;
+      border: 1px solid transparent;
+    }
+
+    .back-btn:hover {
+      color: var(--text-primary);
+      background: var(--surface-2);
+      border-color: var(--border);
+    }
+
+    .hdr-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border);
+    }
+
+    .hdr-tool-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .hdr-spacer { flex: 1; }
+
+    .hdr-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+    }
+
+    /* ── Page shell ──────────────────────────────────────────── */
+    .page-wrap {
+      display: none;
+      min-height: calc(100vh - 60px);
+    }
+    .page-wrap.active { display: block; }
+
+    .page-content {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 32px 64px;
+    }
+
+    /* ── Page title area ─────────────────────────────────────── */
+    .page-title-area {
+      margin-bottom: 36px;
+    }
+
+    .page-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--amber);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .page-eyebrow::before {
+      content: '';
+      width: 14px;
+      height: 1px;
+      background: var(--amber);
+    }
+
+    .page-h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .page-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-weight: 300;
+    }
+
+    /* ── Section card ────────────────────────────────────────── */
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    .section-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-label-num {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      color: var(--amber);
+    }
+
+    /* ── Upload zone ─────────────────────────────────────────── */
+    .upload-zone {
+      border: 1.5px dashed var(--border);
+      border-radius: var(--radius-lg);
+      padding: 28px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .upload-zone:hover {
+      border-color: var(--border-hover);
+      background: var(--surface-2);
+    }
+
+    .upload-zone.amber {
+      border-color: var(--amber-border);
+      background: var(--amber-dim);
+    }
+
+    .upload-zone.teal {
+      border-color: var(--teal-border);
+      background: var(--teal-dim);
+    }
+
+    .upload-zone.amber:hover { border-color: rgba(240,165,0,0.5); }
+    .upload-zone.teal:hover  { border-color: rgba(45,212,191,0.5); }
+
+    .upload-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-md);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+    }
+
+    .upload-icon.amber { background: var(--amber-dim); color: var(--amber); }
+    .upload-icon.teal  { background: var(--teal-dim);  color: var(--teal); }
+    .upload-icon.neutral { background: var(--surface-2); color: var(--text-muted); }
+
+    .upload-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .upload-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .upload-tag {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .upload-tag.optional {
+      background: var(--surface-3);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+
+    .upload-tag.required {
+      background: var(--amber-dim);
+      color: var(--amber);
+      border: 1px solid var(--amber-border);
+    }
+
+    /* ── Two-col upload grid ─────────────────────────────────── */
+    .upload-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    /* ── Mapping panel ───────────────────────────────────────── */
+    .mapping-panel {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+
+    .mapping-col {
+      background: var(--surface-2);
+      padding: 16px;
+    }
+
+    .mapping-col-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .mapping-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .mapping-row:last-child { border-bottom: none; }
+
+    .mapping-key { color: var(--text-secondary); }
+
+    .mapping-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--amber);
+    }
+
+    .mapping-ok  { color: var(--green); }
+    .mapping-err { color: var(--red); }
+
+    /* ── Table blocks grid ───────────────────────────────────── */
+    .blocks-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .block-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+    }
+
+    .block-card-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .block-card-val {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.03em;
+    }
+
+    .block-card-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 20px 0;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 18px;
+      border-radius: var(--radius-md);
+      font-family: 'Sora', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background 0.18s, border-color 0.18s, opacity 0.18s;
+    }
+
+    .btn-primary {
+      background: var(--amber);
+      color: #0d0d10;
+    }
+    .btn-primary:hover { background: #e09800; }
+
+    .btn-secondary {
+      background: var(--surface-2);
+      border-color: var(--border);
+      color: var(--text-primary);
+    }
+    .btn-secondary:hover { border-color: var(--border-hover); }
+
+    .btn-ghost {
+      background: transparent;
+      border-color: var(--border);
+      color: var(--text-secondary);
+    }
+    .btn-ghost:hover { color: var(--red); border-color: var(--red); }
+
+    /* ── Stats cards ─────────────────────────────────────────── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+    }
+
+    .stat-card.amber::before { background: var(--amber); }
+    .stat-card.teal::before  { background: var(--teal); }
+    .stat-card.green::before { background: var(--green); }
+
+    .stat-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .stat-val {
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.03em;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+
+    .stat-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* ── Table ───────────────────────────────────────────────── */
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    thead tr {
+      background: var(--surface-2);
+    }
+
+    thead th {
+      padding: 10px 14px;
+      text-align: left;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    thead th.center { text-align: center; }
+
+    /* Sub-headers */
+    thead tr.sub-row th {
+      background: var(--surface-3);
+      font-size: 9px;
+      padding: 7px 14px;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surface-2); }
+
+    tbody td {
+      padding: 10px 14px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    tbody td.bold { color: var(--text-primary); font-weight: 500; }
+    tbody td.amber { color: var(--amber); font-family: 'JetBrains Mono', monospace; }
+    tbody td.green { color: var(--green); }
+    tbody td.red   { color: var(--red); }
+    tbody td.center { text-align: center; }
+    tbody td.mono  { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+
+    /* ── Preview toggle ──────────────────────────────────────── */
+    .preview-toggle {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+
+    .preview-tab {
+      padding: 5px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--text-muted);
+      transition: all 0.15s;
+    }
+
+    .preview-tab.active {
+      background: var(--amber-dim);
+      border-color: var(--amber-border);
+      color: var(--amber);
+    }
+
+    /* ── Instructions ────────────────────────────────────────── */
+    .instructions {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+    }
+
+    .instructions-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .instructions li {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      padding-left: 4px;
+    }
+
+    .instructions ol { padding-left: 18px; }
+
+    /* ── Type C — Placeholder ────────────────────────────────── */
+    .placeholder-wrap {
+      min-height: calc(100vh - 60px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+
+    .placeholder-box {
+      text-align: center;
+      max-width: 440px;
+    }
+
+    .placeholder-icon-wrap {
+      width: 72px;
+      height: 72px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-xl);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 24px;
+      color: var(--text-muted);
+    }
+
+    .placeholder-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: var(--yellow-dim, rgba(251,191,36,0.10));
+      border: 1px solid rgba(251,191,36,0.2);
+      color: #fbbf24;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      margin-bottom: 20px;
+    }
+
+    .placeholder-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #fbbf24;
+    }
+
+    .placeholder-title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      color: var(--text-primary);
+      margin-bottom: 10px;
+    }
+
+    .placeholder-desc {
+      font-size: 14px;
+      color: var(--text-secondary);
+      font-weight: 300;
+      line-height: 1.7;
+      margin-bottom: 32px;
+    }
+
+    .placeholder-features {
+      text-align: left;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      margin-bottom: 28px;
+    }
+
+    .placeholder-features-title {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .placeholder-feature-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    .placeholder-feature-item:last-child { border-bottom: none; }
+
+    .feature-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .page-content { padding: 32px 20px 48px; }
+      .upload-grid  { grid-template-columns: 1fr; }
+      .stats-row    { grid-template-columns: 1fr; }
+      .blocks-grid  { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Tab switcher ────────────────────────────────────────── -->
+<div class="mockup-tabs">
+  <button class="mockup-tab active" onclick="showTab('a')">Type A — Excel Merge</button>
+  <button class="mockup-tab" onclick="showTab('b')">Type B — Standard Tool</button>
+  <button class="mockup-tab" onclick="showTab('c')">Type C — Placeholder</button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- TYPE A — ExcelMergeTool                                   -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="page-a" class="page-wrap active">
+
+  <header class="hdr">
+    <div class="hdr-inner">
+      <button class="back-btn">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        返回
+      </button>
+      <div class="hdr-divider"></div>
+      <span class="hdr-tool-name">Excel Merge Tool</span>
+      <div class="hdr-spacer"></div>
+      <span class="hdr-badge">excel-merge-tool</span>
+    </div>
+  </header>
+
+  <div class="page-content">
+
+    <!-- Title -->
+    <div class="page-title-area">
+      <div class="page-eyebrow">庫存表</div>
+      <h1 class="page-h1">Excel Merge Tool</h1>
+      <p class="page-desc">上傳範本與來源檔案，自動對應欄位並合併庫存資料</p>
+    </div>
+
+    <!-- Step 1: Template upload -->
+    <div class="section-card">
+      <div class="section-label">
+        <span class="section-label-num">1</span>
+        上傳範本檔案
+      </div>
+      <div class="upload-zone amber">
+        <div class="upload-icon amber">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg>
+        </div>
+        <div class="upload-title">拖曳或點擊上傳範本</div>
+        <div class="upload-hint">.xlsx · 包含現有庫存資料的範本</div>
+        <span class="upload-tag required">必填</span>
+      </div>
+    </div>
+
+    <!-- Column mapping analysis (shown after upload) -->
+    <div class="section-card">
+      <div class="section-label">欄位對應分析</div>
+      <div class="mapping-panel">
+        <div class="mapping-col">
+          <div class="mapping-col-title">偵測到的欄位</div>
+          <div class="mapping-row">
+            <span class="mapping-key">品名</span>
+            <span class="mapping-val mapping-ok">✓ 已對應</span>
+          </div>
+          <div class="mapping-row">
+            <span class="mapping-key">料號</span>
+            <span class="mapping-val mapping-ok">✓ 已對應</span>
+          </div>
+          <div class="mapping-row">
+            <span class="mapping-key">庫存數量</span>
+            <span class="mapping-val mapping-ok">✓ 已對應</span>
+          </div>
+          <div class="mapping-row">
+            <span class="mapping-key">倉庫代碼</span>
+            <span class="mapping-val mapping-err">✗ 未找到</span>
+          </div>
+        </div>
+        <div class="mapping-col">
+          <div class="mapping-col-title">預期欄位映射</div>
+          <div class="mapping-row">
+            <span class="mapping-key">name</span>
+            <span class="mapping-val">品名</span>
+          </div>
+          <div class="mapping-row">
+            <span class="mapping-key">sku</span>
+            <span class="mapping-val">料號</span>
+          </div>
+          <div class="mapping-row">
+            <span class="mapping-key">stock</span>
+            <span class="mapping-val">庫存數量</span>
+          </div>
+          <div class="mapping-row">
+            <span class="mapping-key">warehouse</span>
+            <span class="mapping-val mapping-err">— 缺少</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Source upload -->
+    <div class="section-card">
+      <div class="section-label">
+        <span class="section-label-num">2</span>
+        上傳來源檔案
+      </div>
+      <div class="upload-zone teal">
+        <div class="upload-icon teal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        </div>
+        <div class="upload-title">拖曳或點擊上傳來源</div>
+        <div class="upload-hint">.xlsx · 包含最新出貨 / 庫存資料</div>
+        <span class="upload-tag required">必填</span>
+      </div>
+
+      <!-- Extracted table blocks -->
+      <div style="margin-top: 16px;">
+        <div class="section-label" style="margin-bottom: 12px;">解析區塊</div>
+        <div class="blocks-grid">
+          <div class="block-card">
+            <div class="block-card-label">倉庫庫存</div>
+            <div class="block-card-val">312</div>
+            <div class="block-card-sub">筆資料</div>
+          </div>
+          <div class="block-card">
+            <div class="block-card-label">網站庫存</div>
+            <div class="block-card-val">86</div>
+            <div class="block-card-sub">筆資料</div>
+          </div>
+          <div class="block-card">
+            <div class="block-card-label">平台庫存</div>
+            <div class="block-card-val">204</div>
+            <div class="block-card-sub">筆資料</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview + Process -->
+    <div class="section-card">
+      <div class="section-label">
+        <span class="section-label-num">3</span>
+        預覽與執行
+      </div>
+      <div class="preview-toggle">
+        <button class="preview-tab active">範本預覽</button>
+        <button class="preview-tab">來源預覽</button>
+      </div>
+      <div class="table-wrap" style="margin-bottom: 20px;">
+        <table>
+          <thead>
+            <tr>
+              <th>料號</th>
+              <th>品名</th>
+              <th>倉庫庫存</th>
+              <th>網站庫存</th>
+              <th>合計</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono bold">A-001</td><td>商品 A</td><td class="amber center">120</td><td class="center">45</td><td class="bold center">165</td></tr>
+            <tr><td class="mono bold">B-002</td><td>商品 B</td><td class="amber center">88</td><td class="center">32</td><td class="bold center">120</td></tr>
+            <tr><td class="mono bold">C-003</td><td>商品 C</td><td class="amber center">0</td><td class="center red">0</td><td class="bold center red">0</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          更新庫存表
+        </button>
+        <button class="btn btn-secondary">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          匯出 Excel
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- TYPE B — Standard Tool (DailyShipping / MonthCount)       -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="page-b" class="page-wrap">
+
+  <header class="hdr">
+    <div class="hdr-inner">
+      <button class="back-btn">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        返回
+      </button>
+      <div class="hdr-divider"></div>
+      <span class="hdr-tool-name">Daily Shipping Combine</span>
+      <div class="hdr-spacer"></div>
+      <span class="hdr-badge">daily-shipping-combine</span>
+    </div>
+  </header>
+
+  <div class="page-content">
+
+    <!-- Title -->
+    <div class="page-title-area">
+      <div class="page-eyebrow">每日出貨</div>
+      <h1 class="page-h1">Daily Shipping Combine</h1>
+      <p class="page-desc">合併舊報表與新出貨資料，自動去重並輸出彙整結果</p>
+    </div>
+
+    <!-- Upload section -->
+    <div class="section-card">
+      <div class="section-label">上傳檔案</div>
+      <div class="upload-grid">
+        <div>
+          <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px; font-family:'JetBrains Mono',monospace; letter-spacing:0.04em;">現有報表（可選）</div>
+          <div class="upload-zone">
+            <div class="upload-icon neutral">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <div class="upload-title">上傳現有報表</div>
+            <div class="upload-hint">.xlsx</div>
+            <span class="upload-tag optional">選填</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:12px; color:var(--text-muted); margin-bottom:8px; font-family:'JetBrains Mono',monospace; letter-spacing:0.04em;">新出貨資料（必填）</div>
+          <div class="upload-zone amber">
+            <div class="upload-icon amber">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </div>
+            <div class="upload-title">上傳 CSV 資料</div>
+            <div class="upload-hint">.csv · 支援多檔同時上傳</div>
+            <span class="upload-tag required">必填</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="btn-row">
+      <button class="btn btn-primary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        預覽匯總
+      </button>
+      <button class="btn btn-secondary">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        下載 Excel
+      </button>
+      <button class="btn btn-ghost">清除所有</button>
+    </div>
+
+    <!-- Stats cards -->
+    <div class="stats-row">
+      <div class="stat-card amber">
+        <div class="stat-label">宅配</div>
+        <div class="stat-val">142</div>
+        <div class="stat-sub">母單 38 筆 · 子單 104 筆</div>
+      </div>
+      <div class="stat-card teal">
+        <div class="stat-label">7-11</div>
+        <div class="stat-val">87</div>
+        <div class="stat-sub">母單 21 筆 · 子單 66 筆</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">全家</div>
+        <div class="stat-val">63</div>
+        <div class="stat-sub">母單 15 筆 · 子單 48 筆</div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="section-card" style="padding:0; overflow:hidden;">
+      <div style="padding:18px 24px 14px; border-bottom:1px solid var(--border);">
+        <div class="section-label" style="margin-bottom:0;">匯總預覽 <span style="color:var(--amber);font-family:'JetBrains Mono',monospace;font-size:10px;margin-left:8px;">顯示前 10 筆</span></div>
+      </div>
+      <div class="table-wrap" style="border:none; border-radius:0;">
+        <table>
+          <thead>
+            <tr>
+              <th rowspan="2">日期</th>
+              <th colspan="2" class="center">宅配</th>
+              <th colspan="2" class="center">7-11</th>
+              <th colspan="2" class="center">全家</th>
+            </tr>
+            <tr class="sub-row">
+              <th class="center">有運費</th>
+              <th class="center">無運費</th>
+              <th class="center">有運費</th>
+              <th class="center">無運費</th>
+              <th class="center">有運費</th>
+              <th class="center">無運費</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td class="mono bold">2026-04-22</td><td class="center amber">28</td><td class="center">14</td><td class="center amber">12</td><td class="center">9</td><td class="center amber">8</td><td class="center">5</td></tr>
+            <tr><td class="mono bold">2026-04-21</td><td class="center amber">31</td><td class="center">18</td><td class="center amber">15</td><td class="center">7</td><td class="center amber">10</td><td class="center">4</td></tr>
+            <tr><td class="mono bold">2026-04-20</td><td class="center amber">19</td><td class="center">11</td><td class="center amber">9</td><td class="center">5</td><td class="center amber">6</td><td class="center">3</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="instructions" style="margin-top:16px;">
+      <div class="instructions-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        使用說明
+      </div>
+      <ol class="instructions">
+        <li>上傳現有報表（若有）以保留歷史資料</li>
+        <li>上傳一或多個 CSV 新出貨資料（支援多檔）</li>
+        <li>點擊「預覽匯總」確認合併結果</li>
+        <li>確認後點擊「下載 Excel」匯出報表</li>
+      </ol>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- TYPE C — Placeholder (Tester)                             -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div id="page-c" class="page-wrap">
+
+  <header class="hdr">
+    <div class="hdr-inner">
+      <button class="back-btn">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        返回
+      </button>
+      <div class="hdr-divider"></div>
+      <span class="hdr-tool-name">Tester</span>
+      <div class="hdr-spacer"></div>
+      <span class="hdr-badge">tester</span>
+    </div>
+  </header>
+
+  <div class="placeholder-wrap">
+    <div class="placeholder-box">
+
+      <div class="placeholder-icon-wrap">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="16 18 22 12 16 6"/>
+          <polyline points="8 6 2 12 8 18"/>
+        </svg>
+      </div>
+
+      <div style="display:flex; justify-content:center; margin-bottom:20px;">
+        <span class="placeholder-badge">
+          <span class="placeholder-dot"></span>
+          開發中
+        </span>
+      </div>
+
+      <h2 class="placeholder-title">Tester</h2>
+      <p class="placeholder-desc">
+        此工具目前仍在開發中，<br>功能尚未完成，敬請期待。
+      </p>
+
+      <div class="placeholder-features">
+        <div class="placeholder-features-title">計畫功能</div>
+        <div class="placeholder-feature-item">
+          <span class="feature-dot"></span>
+          功能 A（待定）
+        </div>
+        <div class="placeholder-feature-item">
+          <span class="feature-dot"></span>
+          功能 B（待定）
+        </div>
+        <div class="placeholder-feature-item">
+          <span class="feature-dot"></span>
+          功能 C（待定）
+        </div>
+      </div>
+
+      <button class="btn btn-secondary" style="margin:0 auto;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        返回工具列表
+      </button>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  function showTab(id) {
+    document.querySelectorAll('.page-wrap').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.mockup-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('page-' + id).classList.add('active');
+    event.target.classList.add('active');
+  }
+</script>
+</body>
+</html>

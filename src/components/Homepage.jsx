@@ -1,143 +1,192 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// 工具
 const tools = [
   {
     id: 'excel-merge-tool',
-    name: 'Excel merge tool',
+    name: 'Excel Merge Tool',
     description: '庫存表',
     path: '/excel-merge-tool',
-    available: true
+    available: true,
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <line x1="10" y1="9" x2="8" y2="9"/>
+      </svg>
+    ),
   },
   {
     id: 'daily-shipping-combine',
     name: 'Daily Shipping Combine',
     description: '每日出貨合併工具',
     path: '/daily-shipping-combine',
-    available: true
+    available: true,
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="1" y="3" width="15" height="13" rx="2"/>
+        <polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/>
+        <circle cx="5.5" cy="18.5" r="2.5"/>
+        <circle cx="18.5" cy="18.5" r="2.5"/>
+      </svg>
+    ),
   },
   {
     id: 'count-shipping-subtotal',
     name: 'Count Shipping Subtotal',
     description: '出貨明細計算業績',
     path: '/count-shipping-subtotal',
-    available: true
+    available: true,
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="1" x2="12" y2="23"/>
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+      </svg>
+    ),
   },
   {
     id: 'month-shipping-count',
     name: 'Month Shipping Count',
     description: '每月出貨統計',
     path: '/month-shipping-count',
-    available: true
+    available: true,
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </svg>
+    ),
   },
   {
     id: 'tester',
     name: 'Tester',
     description: 'TEST',
     path: '/tester',
-    available: false
-  }
+    available: false,
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="16 18 22 12 16 6"/>
+        <polyline points="8 6 2 12 8 18"/>
+      </svg>
+    ),
+  },
 ];
+
+const ArrowIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12h14M12 5l7 7-7 7"/>
+  </svg>
+);
+
+const SearchIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+  </svg>
+);
 
 const HomePage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
 
-  // 搜尋過濾邏輯
   const filteredTools = useMemo(() => {
     if (!searchQuery.trim()) return tools;
-    
     const query = searchQuery.toLowerCase();
-    return tools.filter(tool => 
-      tool.name.toLowerCase().includes(query) ||
-      tool.description.toLowerCase().includes(query)
+    return tools.filter(t =>
+      t.name.toLowerCase().includes(query) ||
+      t.description.toLowerCase().includes(query)
     );
   }, [searchQuery]);
 
+  const availableCount = filteredTools.filter(t => t.available).length;
+
   const handleToolClick = (tool) => {
-    if (tool.available) {
-      navigate(tool.path);
-    } else {
-      alert(`${tool.name} 功能開發中...`);
-    }
+    if (tool.available) navigate(tool.path);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
-      <div className="max-w-4xl mx-auto">
-        {/* 標題 */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-4">
-            Tools Dashboard
-          </h1>
-          <p className="text-gray-600">
-            工具平台
-          </p>
-        </div>
-
-        {/* 搜尋欄 */}
-        <div className="mb-8">
-          <input
-            type="text"
-            placeholder="搜尋..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full max-w-md mx-auto block px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
-
-        {/* 工具方塊網格 */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTools.map((tool) => (
-            <div
-              key={tool.id}
-              onClick={() => handleToolClick(tool)}
-              className={`bg-white border border-gray-200 rounded-lg p-6 cursor-pointer transition-all duration-200 text-center relative
-                ${tool.available 
-                  ? 'hover:bg-gray-50 hover:border-gray-300 hover:shadow-md' 
-                  : 'opacity-75 hover:opacity-90'
-                }`}
-            >
-              {!tool.available && (
-                <div className="absolute top-2 right-2">
-                  <span className="inline-block w-2 h-2 bg-yellow-400 rounded-full"></span>
-                </div>
-              )}
-              {tool.available && (
-                <div className="absolute top-2 right-2">
-                  <span className="inline-block w-2 h-2 bg-green-400 rounded-full"></span>
-                </div>
-              )}
-              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {tool.name}
-              </h3>
-              <p className="text-sm text-gray-600">
-                {tool.description}
-              </p>
-              {!tool.available && (
-                <p className="text-xs text-yellow-600 mt-2">開發中</p>
-              )}
-              {tool.available && (
-                <p className="text-xs text-green-600 mt-2">可用</p>
-              )}
+    <>
+      <header className="hdr">
+        <div className="hdr-inner">
+          <div className="hdr-logo">
+            <div className="hdr-logo-icon">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <rect x="1" y="1" width="5" height="5" rx="1" fill="#0d0d10"/>
+                <rect x="8" y="1" width="5" height="5" rx="1" fill="#0d0d10"/>
+                <rect x="1" y="8" width="5" height="5" rx="1" fill="#0d0d10"/>
+                <rect x="8" y="8" width="5" height="5" rx="1" fill="#0d0d10" opacity="0.4"/>
+              </svg>
             </div>
-          ))}
-        </div>
-
-        {/* 沒有找到工具的提示 */}
-        {filteredTools.length === 0 && searchQuery && (
-          <div className="text-center py-12">
-            <p className="text-gray-500">找不到相關工具</p>
+            <span className="hdr-logo-text">tools<span>.</span>dashboard</span>
           </div>
-        )}
-
-        {/* 底部資訊 */}
-        <div className="mt-12 text-center text-gray-400 text-sm">
-          <p>共 {filteredTools.length} 個工具</p>
+          <span className="hdr-meta">工具平台</span>
         </div>
+      </header>
+
+      <div className="page">
+        <main className="page-main">
+          <div className="hero">
+            <div className="hero-label">工具平台</div>
+            <h1 className="hero-title">Tools Dashboard</h1>
+            <p className="hero-sub">選擇工具以開始操作</p>
+          </div>
+
+          <div className="search-row">
+            <div className="search-box">
+              <span className="search-icon"><SearchIcon /></span>
+              <input
+                className="search-input"
+                type="text"
+                placeholder="搜尋工具..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <span className="tool-count">
+              共 <strong>{availableCount}</strong> 個可用工具
+            </span>
+          </div>
+
+          <div className="tool-grid">
+            {filteredTools.map((tool) => (
+              <div
+                key={tool.id}
+                className={`tool-card ${tool.available ? 'available' : 'unavailable'}`}
+                onClick={() => handleToolClick(tool)}
+              >
+                <div className="card-accent" />
+                <div className="card-header">
+                  <div className="card-icon">{tool.icon}</div>
+                  {tool.available
+                    ? <span className="card-status status-available"><span className="status-dot" />可用</span>
+                    : <span className="card-status status-dev"><span className="status-dot" />開發中</span>
+                  }
+                </div>
+                <div>
+                  <p className="card-name">{tool.name}</p>
+                  <p className="card-desc">{tool.description}</p>
+                </div>
+                <div className="card-footer">
+                  <span className="card-id">{tool.id}</span>
+                  {tool.available && <span className="card-arrow"><ArrowIcon /></span>}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {filteredTools.length === 0 && searchQuery && (
+            <div className="empty-state">找不到相關工具</div>
+          )}
+        </main>
+
+        <footer className="page-footer">
+          <span className="page-footer-text">tools.dashboard · 工具平台</span>
+        </footer>
       </div>
-    </div>
+    </>
   );
 };
 
