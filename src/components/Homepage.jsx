@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 const tools = [
   {
     id: 'excel-merge-tool',
-    name: 'Excel Merge Tool',
-    description: '庫存表',
+    name: '庫存表',
+    description: 'Excel Merge Tool',
     path: '/excel-merge-tool',
     available: true,
     icon: (
@@ -20,8 +20,8 @@ const tools = [
   },
   {
     id: 'daily-shipping-combine',
-    name: 'Daily Shipping Combine',
-    description: '每日出貨合併工具',
+    name: '每日出貨合併工具',
+    description: 'Daily Shipping Combine',
     path: '/daily-shipping-combine',
     available: true,
     icon: (
@@ -35,8 +35,8 @@ const tools = [
   },
   {
     id: 'count-shipping-subtotal',
-    name: 'Count Shipping Subtotal',
-    description: '出貨明細計算業績',
+    name: '出貨明細計算業績',
+    description: 'Count Shipping Subtotal',
     path: '/count-shipping-subtotal',
     available: true,
     icon: (
@@ -48,8 +48,8 @@ const tools = [
   },
   {
     id: 'month-shipping-count',
-    name: 'Month Shipping Count',
-    description: '每月出貨統計',
+    name: '每月出貨統計',
+    description: 'Month Shipping Count',
     path: '/month-shipping-count',
     available: true,
     icon: (
