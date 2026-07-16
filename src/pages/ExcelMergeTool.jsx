@@ -7,12 +7,13 @@ import * as XLSX from 'xlsx';
 const OUTPUT_COLUMNS = [
   { key: '商品代號', width: 17 },
   { key: '商品名稱', width: 25 },
+  { key: '貨號', width: 17 },
   { key: '尺寸名稱', width: 15 },
   { key: '年度', width: 10 },
+  { key: '含稅定價', width: 12 },
   { key: '總倉', width: 10 },
   { key: '官網', width: 10 },
   { key: '平台', width: 10 },
-  { key: '含稅定價', width: 12 },
   { key: '備註', width: 20 },
 ];
 
@@ -222,13 +223,14 @@ const ExcelMergeTool = () => {
     const summaryData = processedData.summary.map(item => ({
       商品代號: item.productCode,
       商品名稱: item.productName || '',
+      貨號: (item.productCode?.toString().split('-').length - 1 === 2) ? item.productCode.toString().slice(0, 13) : '', //productCode 若有兩個 - ，存前13個字，否則空白
       尺寸名稱: item.sizeName || '',
       年度: item.year || '',
+      含稅定價: item.price || '',
       // 數量為 0 時留白，與紙本庫存表格式一致
       總倉: item.總倉 || '',
       官網: item.官網 || '',
       平台: item.平台 || '',
-      含稅定價: item.price || '',
       備註: ''
     }));
 
@@ -244,7 +246,7 @@ const ExcelMergeTool = () => {
     const yymmdd = today.getFullYear().toString().slice(-2) +
                    (today.getMonth() + 1).toString().padStart(2, '0') +
                    today.getDate().toString().padStart(2, '0');
-    const fileName = `更新後庫存表_${yymmdd}.xlsx`;
+    const fileName = `庫存表_${sourceFile.name.split('.')[0]}_${yymmdd}.xlsx`;
 
     XLSX.writeFile(wb, fileName);
   };
@@ -440,12 +442,13 @@ const ExcelMergeTool = () => {
                     <tr>
                       <th className="px-2 py-2 text-left text-xs font-medium text-gray-500">商品代號</th>
                       <th className="px-2 py-2 text-left text-xs font-medium text-gray-500">商品名稱</th>
+                      <th className="px-2 py-2 text-left text-xs font-medium text-gray-500">貨號</th>
                       <th className="px-2 py-2 text-left text-xs font-medium text-gray-500">尺寸名稱</th>
                       <th className="px-2 py-2 text-left text-xs font-medium text-gray-500">年度</th>
+                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">含稅定價</th>
                       <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">總倉</th>
                       <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">官網</th>
                       <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">平台</th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">含稅定價</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -453,12 +456,13 @@ const ExcelMergeTool = () => {
                       <tr key={index}>
                         <td className="px-2 py-2 text-sm font-medium text-gray-900">{item.productCode}</td>
                         <td className="px-2 py-2 text-sm text-gray-900">{item.productName}</td>
+                        <td className="px-2 py-2 text-sm font-medium text-gray-900">{(item.productCode?.toString().split('-').length - 1 === 2) ? item.productCode.toString().slice(0, 13) : ''}</td>
                         <td className="px-2 py-2 text-sm text-gray-900">{item.sizeName}</td>
                         <td className="px-2 py-2 text-sm text-gray-900">{item.year}</td>
+                        <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.price}</td>
                         <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.總倉 || ''}</td>
                         <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.官網 || ''}</td>
                         <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.平台 || ''}</td>
-                        <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.price}</td>
                       </tr>
                     ))}
                   </tbody>
