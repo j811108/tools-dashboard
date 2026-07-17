@@ -17,6 +17,13 @@ const OUTPUT_COLUMNS = [
   { key: '備註', width: 20 },
 ];
 
+// 貨號：商品代號有兩個 - 才取，SG 開頭取前 12 字，其餘取前 13 字
+const getItemNumber = (productCode) => {
+  const code = productCode?.toString() ?? '';
+  if (code.split('-').length - 1 !== 2) return '';
+  return code.slice(0, code.startsWith('SG') ? 12 : 13);
+};
+
 const ExcelMergeTool = () => {
   const [sourceFile, setSourceFile] = useState(null);
   const [processedData, setProcessedData] = useState(null);
@@ -223,7 +230,7 @@ const ExcelMergeTool = () => {
     const summaryData = processedData.summary.map(item => ({
       商品代號: item.productCode,
       商品名稱: item.productName || '',
-      貨號: (item.productCode?.toString().split('-').length - 1 === 2) ? item.productCode.toString().slice(0, 13) : '', //productCode 若有兩個 - ，存前13個字，否則空白
+      貨號: getItemNumber(item.productCode),
       尺寸名稱: item.sizeName || '',
       年度: item.year || '',
       含稅定價: item.price || '',
@@ -456,7 +463,7 @@ const ExcelMergeTool = () => {
                       <tr key={index}>
                         <td className="px-2 py-2 text-sm font-medium text-gray-900">{item.productCode}</td>
                         <td className="px-2 py-2 text-sm text-gray-900">{item.productName}</td>
-                        <td className="px-2 py-2 text-sm font-medium text-gray-900">{(item.productCode?.toString().split('-').length - 1 === 2) ? item.productCode.toString().slice(0, 13) : ''}</td>
+                        <td className="px-2 py-2 text-sm font-medium text-gray-900">{getItemNumber(item.productCode)}</td>
                         <td className="px-2 py-2 text-sm text-gray-900">{item.sizeName}</td>
                         <td className="px-2 py-2 text-sm text-gray-900">{item.year}</td>
                         <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.price}</td>
