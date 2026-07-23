@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Upload, Download, FileSpreadsheet, Plus, ArrowLeft } from 'lucide-react';
+import { Upload, Download, FileSpreadsheet, Plus, ArrowLeft, Trash2 } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
 import * as XLSX from 'xlsx';
 
@@ -25,8 +25,104 @@ const getItemNumber = (productCode) => {
   return code.slice(0, code.startsWith('SG') ? 12 : 13);
 };
 
+// 倉庫名稱 → 輸出欄位。先命中先算，順序不可調換：
+// 「展威麗嬰房(平台總倉)」同時含「平台」「總倉」，不先攔會被判成平台；
+// 「展宇麗嬰(平台總倉)」同時含「平台」「總倉」，要判成平台而非總倉。
+const resolveSourceType = (warehouseName) => {
+  const name = warehouseName?.toString() ?? '';
+  if (name.includes('展威')) return '展威';
+  if (name.includes('平台') || name.includes('平臺')) return '平台';
+  if (name.includes('電商') || name.includes('官網')) return '官網';
+  return '總倉';  //1140922 未知一律丟總倉
+};
+
+// 解析單一檔案的表格區塊
+const parseTableBlocks = (jsonData, fileName) => {
+  const tables = [];
+  let currentTable = null;
+
+  for (let i = 0; i < jsonData.length; i++) {
+    const row = jsonData[i];
+    if (!row || row.length === 0) continue;
+
+    const rowText = row.join('').toLowerCase();
+    const firstCell = (row[0] ?? '').toString().trim();
+    // 來源檔的區塊標題長這樣：「倉庫 :展威麗嬰房(平台總倉)」
+    const isWarehouseRow = firstCell.startsWith('倉庫');
+
+    // 檢查是否為表格名稱行
+    if (isWarehouseRow ||
+        rowText.includes('展') || rowText.includes('總倉') || rowText.includes('電商') || rowText.includes('平台') ||
+        rowText.includes('官網') || rowText.includes('倉庫')) {
+      // 保存前一個表格
+      if (currentTable && currentTable.dataRows.length > 0) {
+        tables.push(currentTable);
+      }
+
+      // 開始新表格。倉庫列取「倉庫 :」後面的實際倉庫名稱，其餘沿用整格文字
+      const tableName = isWarehouseRow
+        ? firstCell.replace(/^倉庫\s*[:：]?\s*/, '')
+        : firstCell;
+
+      currentTable = {
+        name: tableName,
+        sourceType: resolveSourceType(tableName),
+        fileName,
+        nameRow: i,
+        headerRow: -1,
+        dataRows: [],
+        summaryRow: -1
+      };
+    }
+    // 檢查是否為標題行
+    else if (currentTable && rowText.includes('商品代號') && rowText.includes('商品名稱')) {
+      currentTable.headerRow = i;
+      currentTable.headers = row;
+    }
+    // 檢查是否為統計行
+    else if (currentTable && (rowText.includes('小計') || rowText.includes('合計') || rowText.includes('數量'))) {
+      currentTable.summaryRow = i;
+    }
+    // 檢查是否為資料行
+    else if (currentTable && currentTable.headerRow !== -1 && row[0] &&
+             !rowText.includes('小計') && !rowText.includes('合計') && !rowText.includes('數量')) {
+      if (row[0].toString().trim() !== '' && row.length > 5) {
+        currentTable.dataRows.push({
+          rowIndex: i,
+          data: row
+        });
+      }
+    }
+  }
+
+  // 保存最後一個表格
+  if (currentTable && currentTable.dataRows.length > 0) {
+    tables.push(currentTable);
+  }
+
+  return tables;
+};
+
+// 讀取單一 Excel 檔並解析出區塊（只讀第一個工作表）
+const readSourceFile = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const workbook = XLSX.read(e.target.result, { type: 'binary' });
+        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        resolve({ name: file.name, tables: parseTableBlocks(jsonData, file.name) });
+      } catch (error) {
+        reject(new Error(`讀取檔案 ${file.name} 時發生錯誤: ${error.message}`));
+      }
+    };
+    reader.onerror = () => reject(new Error(`讀取檔案 ${file.name} 失敗`));
+    reader.readAsBinaryString(file);
+  });
+
 const ExcelMergeTool = () => {
-  const [sourceFile, setSourceFile] = useState(null);
+  const [sourceFiles, setSourceFiles] = useState([]);
   const [processedData, setProcessedData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [extractedTables, setExtractedTables] = useState([]);
@@ -37,106 +133,67 @@ const ExcelMergeTool = () => {
     navigate("/");
   };
 
-  // 處理來源檔案上傳
-  const handleSourceFileUpload = useCallback((event) => {
-    const file = event.target.files[0];
-    if (!file) return;
+  // 處理來源檔案上傳（可一次選多檔，也可分次累加）
+  const handleSourceFileUpload = useCallback(async (event) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';  // 清空才能重選同一個檔案
+    if (files.length === 0) return;
 
     setProcessedData(null);
     setPreviewMode(null);
+    setLoading(true);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const workbook = XLSX.read(e.target.result, { type: 'binary' });
-        const sheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[sheetName];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+    try {
+      // 同檔名只收一次，避免同一份庫存被重複累加
+      const existingNames = new Set(sourceFiles.map(f => f.name));
+      const accepted = [];
+      const skipped = [];
 
-        setSourceFile({
-          id: Date.now(),
-          name: file.name,
-          rawData: jsonData
-        });
-
-        // 自動解析表格區塊
-        parseTableBlocks(jsonData);
-
-      } catch (error) {
-        alert(`讀取檔案 ${file.name} 時發生錯誤: ${error.message}`);
-      }
-    };
-    reader.readAsBinaryString(file);
-  }, []);
-
-  // 解析表格區塊
-  const parseTableBlocks = (jsonData) => {
-    const tables = [];
-    let currentTable = null;
-
-    for (let i = 0; i < jsonData.length; i++) {
-      const row = jsonData[i];
-      if (!row || row.length === 0) continue;
-
-      const rowText = row.join('').toLowerCase();
-
-      // 檢查是否為表格名稱行
-      if (rowText.includes('展') || rowText.includes('總倉') || rowText.includes('電商') || rowText.includes('平台') ||
-          rowText.includes('官網') || rowText.includes('倉庫')) {
-        // 保存前一個表格
-        if (currentTable && currentTable.dataRows.length > 0) {
-          tables.push(currentTable);
+      // 逐檔依序讀取，全部讀完才更新 state
+      for (const file of files) {
+        if (existingNames.has(file.name)) {
+          skipped.push(file.name);
+          continue;
         }
+        existingNames.add(file.name);
+        accepted.push(await readSourceFile(file));
+      }
 
-        // 開始新表格
-        const tableName = row[0] || '';
-        let sourceType = '總倉';  //1140922 未知一律丟總倉
-        // 展威麗嬰房(平台總倉) 名稱同時含「平台」「總倉」，必須優先判斷
-        if (tableName.includes('展威')) sourceType = '展威';
-        else if (tableName.includes('平台') || tableName.includes('平臺')) sourceType = '平台';
-        else if (tableName.includes('電商') || tableName.includes('官網')) sourceType = '官網';
-
-        currentTable = {
-          name: tableName,
-          sourceType: sourceType,
-          nameRow: i,
-          headerRow: -1,
-          dataRows: [],
-          summaryRow: -1
-        };
+      if (accepted.length > 0) {
+        setSourceFiles(prev => [
+          ...prev,
+          ...accepted.map(r => ({ id: `${r.name}-${Date.now()}`, name: r.name, blockCount: r.tables.length }))
+        ]);
+        setExtractedTables(prev => [...prev, ...accepted.flatMap(r => r.tables)]);
       }
-      // 檢查是否為標題行
-      else if (currentTable && rowText.includes('商品代號') && rowText.includes('商品名稱')) {
-        currentTable.headerRow = i;
-        currentTable.headers = row;
+      if (skipped.length > 0) {
+        alert(`以下檔案已經上傳過，這次略過（避免庫存重複累加）：\n${skipped.join('\n')}`);
       }
-      // 檢查是否為統計行
-      else if (currentTable && (rowText.includes('小計') || rowText.includes('合計') || rowText.includes('數量'))) {
-        currentTable.summaryRow = i;
-      }
-      // 檢查是否為資料行
-      else if (currentTable && currentTable.headerRow !== -1 && row[0] &&
-               !rowText.includes('小計') && !rowText.includes('合計') && !rowText.includes('數量')) {
-        if (row[0].toString().trim() !== '' && row.length > 5) {
-          currentTable.dataRows.push({
-            rowIndex: i,
-            data: row
-          });
-        }
-      }
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
     }
+  }, [sourceFiles]);
 
-    // 保存最後一個表格
-    if (currentTable && currentTable.dataRows.length > 0) {
-      tables.push(currentTable);
-    }
+  // 移除單一來源檔（連同它解析出來的區塊）
+  const handleRemoveFile = (name) => {
+    setSourceFiles(prev => prev.filter(f => f.name !== name));
+    setExtractedTables(prev => prev.filter(t => t.fileName !== name));
+    setProcessedData(null);
+  };
 
-    setExtractedTables(tables);
+  // 清除所有已上傳的檔案與結果
+  const handleClearAll = () => {
+    setSourceFiles([]);
+    setExtractedTables([]);
+    setProcessedData(null);
+    setPreviewMode(null);
   };
 
   // 處理資料合併
   const processInventoryData = () => {
-    if (!sourceFile) {
+    if (sourceFiles.length === 0) {
       alert('請先上傳來源檔案');
       return;
     }
@@ -172,10 +229,10 @@ const ExcelMergeTool = () => {
                 sizeName,
                 year,
                 price,
-                總倉: 0,
-                官網: 0,
-                平台: 0,
-                展威: 0
+                // 每個輸出欄位底下再依「原始倉庫名稱」分別記錄：
+                // 同一倉庫重複出現（分頁）→ 覆蓋，不會重複累加；
+                // 不同倉庫落在同一欄位（例：展威麗嬰房 + 展威麗嬰房(平台總倉)）→ 相加。
+                byWarehouse: { 總倉: {}, 官網: {}, 平台: {}, 展威: {} }
               };
             } else {
               if (productName) inventoryMap[key].productName = productName;
@@ -184,18 +241,19 @@ const ExcelMergeTool = () => {
               if (price) inventoryMap[key].price = price;
             }
 
-            // 根據表格來源類型設定庫存
-            if (table.sourceType === '總倉') {
-              inventoryMap[key].總倉 = inventory;
-            } else if (table.sourceType === '官網') {
-              inventoryMap[key].官網 = inventory;
-            } else if (table.sourceType === '平台') {
-              inventoryMap[key].平台 = inventory;
-            } else if (table.sourceType === '展威') {
-              inventoryMap[key].展威 = inventory;
-            }
+            const bucket = inventoryMap[key].byWarehouse[table.sourceType];
+            if (bucket) bucket[table.name] = inventory;
           }
         });
+      });
+
+      // 把各倉庫的數量加總成輸出欄位
+      const sumOf = (bucket) => Object.values(bucket).reduce((sum, n) => sum + n, 0);
+      Object.values(inventoryMap).forEach(item => {
+        item.總倉 = sumOf(item.byWarehouse.總倉);
+        item.官網 = sumOf(item.byWarehouse.官網);
+        item.平台 = sumOf(item.byWarehouse.平台);
+        item.展威 = sumOf(item.byWarehouse.展威);
       });
 
       // 將 inventoryMap 轉為陣列，先按年度倒序排列，再按商品代號排序
@@ -260,7 +318,11 @@ const ExcelMergeTool = () => {
     const yymmdd = today.getFullYear().toString().slice(-2) +
                    (today.getMonth() + 1).toString().padStart(2, '0') +
                    today.getDate().toString().padStart(2, '0');
-    const fileName = `庫存表_${sourceFile.name.split('.')[0]}_${yymmdd}.xlsx`;
+    // 單檔沿用來源檔名；多檔改標示合併檔數，避免誤以為只含其中一份
+    const baseName = sourceFiles.length === 1
+      ? sourceFiles[0].name.split('.')[0]
+      : `合併${sourceFiles.length}檔`;
+    const fileName = `庫存表_${baseName}_${yymmdd}.xlsx`;
 
     XLSX.writeFile(wb, fileName);
   };
@@ -295,30 +357,59 @@ const ExcelMergeTool = () => {
         {/* 來源檔案上傳 */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            上傳庫存來源檔案（包含總倉/電商/平台三個表格區塊）
+            上傳庫存來源檔案（可一次選多個檔案，或分次上傳累加；系統會自動辨識每個檔案裡的倉庫區塊並合併成一份）
           </label>
           <div className="border-2 border-dashed border-green-300 rounded-lg p-4 text-center hover:border-green-400 transition-colors">
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleSourceFileUpload}
-              className="hidden"
-              id="source-upload"
-            />
-            <label htmlFor="source-upload" className="cursor-pointer">
+            <label className="cursor-pointer block">
               <Upload className="mx-auto h-8 w-8 text-green-400 mb-2" />
-              <span className="text-green-600 hover:text-green-800">選擇庫存來源檔案</span>
+              <span className="text-green-600 hover:text-green-800">選擇庫存來源檔案 (可多選)</span>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                multiple
+                onChange={handleSourceFileUpload}
+                className="hidden"
+                disabled={loading}
+              />
             </label>
           </div>
-          {sourceFile && (
-            <div className="mt-2 p-2 bg-green-50 rounded text-sm text-green-800 flex justify-between items-center">
-              <span>已上傳：{sourceFile.name}</span>
-              <button
-                onClick={() => setPreviewMode(previewMode === 'source' ? null : 'source')}
-                className="text-green-600 hover:text-green-800 text-xs border rounded px-2 py-1"
-              >
-                {previewMode === 'source' ? '隱藏預覽' : '預覽表格'}
-              </button>
+
+          {loading && (
+            <div className="mt-3 flex items-center justify-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-500"></div>
+              <span className="ml-3 text-sm text-gray-600">處理中...</span>
+            </div>
+          )}
+
+          {sourceFiles.length > 0 && (
+            <div className="mt-2 space-y-1">
+              <div className="text-sm text-green-600">✅ 已上傳 {sourceFiles.length} 個檔案</div>
+              {sourceFiles.map(file => (
+                <div key={file.id} className="p-2 bg-green-50 rounded text-sm text-green-800 flex justify-between items-center">
+                  <span>{file.name}（{file.blockCount} 個倉庫區塊）</span>
+                  <button
+                    onClick={() => handleRemoveFile(file.name)}
+                    className="text-red-600 hover:text-red-800 text-xs border border-red-200 rounded px-2 py-1"
+                  >
+                    移除
+                  </button>
+                </div>
+              ))}
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setPreviewMode(previewMode === 'source' ? null : 'source')}
+                  className="text-green-600 hover:text-green-800 text-xs border rounded px-2 py-1"
+                >
+                  {previewMode === 'source' ? '隱藏預覽' : '預覽表格'}
+                </button>
+                <button
+                  onClick={handleClearAll}
+                  className="flex items-center text-red-600 hover:text-red-800 text-xs border border-red-200 rounded px-2 py-1"
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  清除所有
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -337,15 +428,30 @@ const ExcelMergeTool = () => {
                   </tr>
                 </thead>
                 <tbody>
+                  {/* 欄位順序與數量必須與 OUTPUT_COLUMNS 一致 */}
                   <tr className="text-gray-500">
                     <td className="border px-2 py-1 whitespace-nowrap">2023GWP01-F</td>
                     <td className="border px-2 py-1 whitespace-nowrap">托特包</td>
                     <td className="border px-2 py-1"></td>
+                    <td className="border px-2 py-1">F</td>
                     <td className="border px-2 py-1">2023</td>
-                    <td className="border px-2 py-1"></td>
+                    <td className="border px-2 py-1">1080</td>
                     <td className="border px-2 py-1">19</td>
                     <td className="border px-2 py-1"></td>
-                    <td className="border px-2 py-1">1080</td>
+                    <td className="border px-2 py-1">3</td>
+                    <td className="border px-2 py-1">1</td>
+                    <td className="border px-2 py-1"></td>
+                  </tr>
+                  <tr className="text-gray-500">
+                    <td className="border px-2 py-1 whitespace-nowrap">SG2024-ABC-01</td>
+                    <td className="border px-2 py-1 whitespace-nowrap">範例商品</td>
+                    <td className="border px-2 py-1 whitespace-nowrap">SG2024-ABC-</td>
+                    <td className="border px-2 py-1">356</td>
+                    <td className="border px-2 py-1">2024</td>
+                    <td className="border px-2 py-1">900</td>
+                    <td className="border px-2 py-1">40</td>
+                    <td className="border px-2 py-1">19</td>
+                    <td className="border px-2 py-1">33</td>
                     <td className="border px-2 py-1"></td>
                     <td className="border px-2 py-1"></td>
                   </tr>
@@ -355,7 +461,8 @@ const ExcelMergeTool = () => {
             <div className="text-xs text-gray-600 mt-3 space-y-1">
               <div>A/商品代號、B/商品名稱、P/尺寸名稱、N/年度、M/含稅定價 → 直接取自來源檔案</div>
               <div>L/可售量 → 依表格區塊分別填入 總倉 / 官網 / 平台 / 展威</div>
-              <div>展威 → 倉庫名稱「展威麗嬰房(平台總倉)」的區塊</div>
+              <div>倉庫對應：含「展威」→ 展威；含「平台」→ 平台；含「電商 / 官網」→ 官網；其餘 → 總倉</div>
+              <div>可一次上傳多個檔案（例：主庫存檔 + 展威檔），會合併成一份輸出；沒有庫存的欄位留白</div>
               <div>備註 → 一律留白，供人工填寫</div>
             </div>
           </div>
@@ -369,6 +476,10 @@ const ExcelMergeTool = () => {
               {extractedTables.map((table, index) => (
                 <div key={index} className="border rounded-lg p-3 bg-gray-50">
                   <div className="font-medium text-gray-800 mb-1">{table.sourceType}</div>
+                  <div className="text-xs text-gray-500 mb-1 break-all">
+                    <div>倉庫：{table.name || '（無名稱）'}</div>
+                    <div>檔案：{table.fileName}</div>
+                  </div>
                   <div className="text-xs text-gray-600 space-y-1">
                     <div>名稱行: 第{table.nameRow + 1}行</div>
                     <div>標題行: 第{table.headerRow + 1}行</div>
@@ -387,7 +498,9 @@ const ExcelMergeTool = () => {
             <h4 className="font-medium text-green-800 mb-2">來源表格預覽</h4>
             {extractedTables.map((table, tableIndex) => (
               <div key={tableIndex} className="mb-4">
-                <h5 className="font-medium text-gray-700 mb-1">{table.sourceType} (前3行資料)</h5>
+                <h5 className="font-medium text-gray-700 mb-1">
+                  {table.sourceType}｜{table.name}｜{table.fileName}（前3行資料）
+                </h5>
                 <div className="overflow-x-auto">
                   <table className="w-full text-xs border bg-white">
                     <thead>
@@ -420,7 +533,7 @@ const ExcelMergeTool = () => {
         )}
 
         {/* 處理按鈕 */}
-        {sourceFile && (
+        {sourceFiles.length > 0 && (
           <div className="flex gap-4 mb-6">
             <button
               onClick={processInventoryData}
@@ -492,7 +605,8 @@ const ExcelMergeTool = () => {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <p className="text-sm text-blue-800">
                 成功處理了 <span className="font-semibold">{processedData.summary.length}</span> 項商品的庫存資料，
-                從 <span className="font-semibold">{processedData.extractedTables.length}</span> 個表格區塊中提取資料
+                從 <span className="font-semibold">{sourceFiles.length}</span> 個檔案、
+                <span className="font-semibold">{processedData.extractedTables.length}</span> 個倉庫區塊中提取資料
               </p>
             </div>
           </div>
