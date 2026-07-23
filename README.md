@@ -26,4 +26,10 @@ npm run build    # 正式打包
 npm run deploy   # 部署至 GitHub Pages
 ```
 
-詳細開發說明請見 [docs/dev/](docs/dev/)。
+詳細開發說明請見 [docs/dev/](docs/dev/)：
+
+- [架構說明](docs/dev/architecture.md)
+- [新增工具頁面](docs/dev/add-new-page.md)
+- [部署流程](docs/dev/deployment.md)
+
+與 Claude Code 協作的開發指南（派工、驗證、判斷準則）見 [docs/ops/](docs/ops/)。

@@ -22,4 +22,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-/.claude
+# Claude Code：整個 .claude 不進版控，只有 skills/ 例外（讓 skill 跟著專案走）
+/.claude/*
+!/.claude/skills/
+# 含實際 ID／帳號的本機檔一律排除
+*.local.md

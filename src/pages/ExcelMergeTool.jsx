@@ -14,6 +14,7 @@ const OUTPUT_COLUMNS = [
   { key: '總倉', width: 10 },
   { key: '官網', width: 10 },
   { key: '平台', width: 10 },
+  { key: '展威', width: 10 },
   { key: '備註', width: 20 },
 ];
 
@@ -90,7 +91,9 @@ const ExcelMergeTool = () => {
         // 開始新表格
         const tableName = row[0] || '';
         let sourceType = '總倉';  //1140922 未知一律丟總倉
-        if (tableName.includes('平台') || tableName.includes('平臺')) sourceType = '平台';
+        // 展威麗嬰房(平台總倉) 名稱同時含「平台」「總倉」，必須優先判斷
+        if (tableName.includes('展威')) sourceType = '展威';
+        else if (tableName.includes('平台') || tableName.includes('平臺')) sourceType = '平台';
         else if (tableName.includes('電商') || tableName.includes('官網')) sourceType = '官網';
 
         currentTable = {
@@ -171,7 +174,8 @@ const ExcelMergeTool = () => {
                 price,
                 總倉: 0,
                 官網: 0,
-                平台: 0
+                平台: 0,
+                展威: 0
               };
             } else {
               if (productName) inventoryMap[key].productName = productName;
@@ -187,6 +191,8 @@ const ExcelMergeTool = () => {
               inventoryMap[key].官網 = inventory;
             } else if (table.sourceType === '平台') {
               inventoryMap[key].平台 = inventory;
+            } else if (table.sourceType === '展威') {
+              inventoryMap[key].展威 = inventory;
             }
           }
         });
@@ -238,6 +244,7 @@ const ExcelMergeTool = () => {
       總倉: item.總倉 || '',
       官網: item.官網 || '',
       平台: item.平台 || '',
+      展威: item.展威 || '',
       備註: ''
     }));
 
@@ -340,13 +347,15 @@ const ExcelMergeTool = () => {
                     <td className="border px-2 py-1"></td>
                     <td className="border px-2 py-1">1080</td>
                     <td className="border px-2 py-1"></td>
+                    <td className="border px-2 py-1"></td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <div className="text-xs text-gray-600 mt-3 space-y-1">
               <div>A/商品代號、B/商品名稱、P/尺寸名稱、N/年度、M/含稅定價 → 直接取自來源檔案</div>
-              <div>L/可售量 → 依表格區塊分別填入 總倉 / 官網 / 平台</div>
+              <div>L/可售量 → 依表格區塊分別填入 總倉 / 官網 / 平台 / 展威</div>
+              <div>展威 → 倉庫名稱「展威麗嬰房(平台總倉)」的區塊</div>
               <div>備註 → 一律留白，供人工填寫</div>
             </div>
           </div>
@@ -356,7 +365,7 @@ const ExcelMergeTool = () => {
         {extractedTables.length > 0 && (
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-3">提取的表格區塊</h3>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {extractedTables.map((table, index) => (
                 <div key={index} className="border rounded-lg p-3 bg-gray-50">
                   <div className="font-medium text-gray-800 mb-1">{table.sourceType}</div>
@@ -456,6 +465,7 @@ const ExcelMergeTool = () => {
                       <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">總倉</th>
                       <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">官網</th>
                       <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">平台</th>
+                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">展威</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -470,6 +480,7 @@ const ExcelMergeTool = () => {
                         <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.總倉 || ''}</td>
                         <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.官網 || ''}</td>
                         <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.平台 || ''}</td>
+                        <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.展威 || ''}</td>
                       </tr>
                     ))}
                   </tbody>

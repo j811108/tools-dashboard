@@ -58,16 +58,28 @@ import YourToolName from './pages/YourToolName';
 ```js
 {
   id: 'your-tool-name',
-  name: 'Your Tool Name',
-  description: '工具中文描述',
+  name: '工具中文名稱',      // 卡片主標題
+  description: 'Your Tool Name', // 卡片副標題，現況放英文代號
   path: '/your-tool-name',
-  available: true
+  available: true,           // false 會顯示為停用（例如 Tester）
+  icon: (
+    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      {/* 自行放 path */}
+    </svg>
+  )
 }
 ```
 
 ### 4. 新增操作說明文件
 
-在 `docs/guides/` 新增 `your-tool-name.md`，說明輸入格式、操作步驟、輸出格式。
+在 `docs/guides/` 新增 `your-tool-name.md`，說明輸入格式、操作步驟、輸出格式，並在根目錄 `README.md` 的工具列表加一列連過去。
+
+## 撰寫慣例
+
+- **CSV／訂單相關邏輯先看 `src/utils/orderUtils.js`**：解析、依母單分組、通路分類都已抽出，不要在頁面內重寫。
+- **同一規則出現在多處要抽成函式**：欄位對應／計算邏輯常同時用在「畫面預覽」與「匯出 Excel」，兩邊必須呼叫同一個函式，避免預覽與輸出不一致（例：`ExcelMergeTool.jsx` 的 `getItemNumber`、`OUTPUT_COLUMNS`）。
+- **樣式一律 Tailwind utility class**，不新增 CSS 檔。
+- **Excel 欄位用索引存取**（如 `row[0]` 是商品代號），改欄位對應時同步更新註解說明是哪一欄。
 
 ## 目錄結構
 
@@ -76,6 +88,8 @@ src/
 ├── App.js                  # 路由設定
 ├── components/
 │   └── Homepage.jsx        # 首頁工具卡片
-└── pages/
-    └── YourToolName.jsx    # 工具頁面元件
+├── pages/
+│   └── YourToolName.jsx    # 工具頁面元件
+└── utils/
+    └── orderUtils.js       # 共用解析／分類邏輯
 ```
