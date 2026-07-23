@@ -1,15 +1,17 @@
 import React, { useState } from "react";
-import { Upload, Download, FileSpreadsheet, ArrowLeft, Trash2, Eye, AlertCircle, FileUp, Plus } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Upload, Download, FileSpreadsheet, Trash2, Eye, AlertCircle, FileUp, Plus } from "lucide-react";
 import * as XLSX from "xlsx";
 import { parseCSVFile, groupOrdersByName, classifyOrderSource } from "../utils/orderUtils";
 import { saveAs } from "file-saver";
+import HelpModal from "../components/HelpModal";
+import ToolHeader from "../components/ToolHeader";
+import { HELP_DOCS } from "../data/helpDocs";
 
 const DailyShippingCombine = () => {
-  const navigate = useNavigate();
   
   // 儲存現有報表的資料
   const [existingReport, setExistingReport] = useState(null); // { 宅配: [], 7-11: [], 全家: [], 匯總: [] }
+  const [showHelp, setShowHelp] = useState(false);
   const [hasExistingReport, setHasExistingReport] = useState(false);
   
   // 新上傳的訂單資料
@@ -23,10 +25,6 @@ const DailyShippingCombine = () => {
   const [summaryData, setSummaryData] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastMergeResult, setLastMergeResult] = useState(null);
-
-  const handleBackToHome = () => {
-    navigate("/");
-  };
 
   // 清除所有資料
   const handleClearAll = () => {
@@ -485,28 +483,17 @@ const DailyShippingCombine = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <button
-              onClick={handleBackToHome}
-              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              返回工具首頁
-            </button>
-            <h1 className="text-xl font-semibold text-gray-900">
-              每日出貨合併工具
-            </h1>
-            <div className="w-32"></div>
-          </div>
-        </div>
-      </div>
+      <HelpModal
+        open={showHelp}
+        onClose={() => setShowHelp(false)}
+        title={HELP_DOCS["daily-shipping-combine"].title}
+        content={HELP_DOCS["daily-shipping-combine"].content}
+      />
+      <ToolHeader title="每日出貨合併工具" onHelp={() => setShowHelp(true)} />
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <div className="bg-white rounded-lg shadow p-6">
+      <div className="mx-auto w-full max-w-[1100px] px-5 sm:px-8 py-10">
+        <div className="bg-white rounded-xl border border-stone-200 shadow-sm p-6 sm:p-8">
           <div className="text-center">
             <FileSpreadsheet className="h-16 w-16 mx-auto text-blue-500 mb-4" />
             <h2 className="text-2xl font-bold mb-4">每日出貨合併工具</h2>

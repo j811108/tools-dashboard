@@ -4,22 +4,23 @@
 
 /* ── Design Tokens ───────────────────────────────────────── */
 :root {
-  --bg:            #0d0d10;
-  --surface:       #16161c;
-  --surface-2:     #1d1d26;
-  --border:        #2a2a38;
-  --border-hover:  #3f3f58;
-  --amber:         #f0a500;
-  --amber-dim:     rgba(240,165,0,0.12);
-  --amber-glow:    rgba(240,165,0,0.06);
-  --text-primary:  #e8e8f0;
-  --text-secondary:#888899;
-  --text-muted:    #55555f;
-  --green:         #34d399;
-  --green-dim:     rgba(52,211,153,0.12);
-  --yellow:        #fbbf24;
-  --yellow-dim:    rgba(251,191,36,0.12);
-  --radius-sm:     6px;
+  /* 大地色系（淺色紙感），與 tailwind.config.js 的色階同源 */
+  --bg:            #FAF8F4;  /* stone-50  紙 */
+  --surface:       #FFFFFF;
+  --surface-2:     #F3EFE8;  /* stone-100 */
+  --border:        #E7E0D5;  /* stone-200 */
+  --border-hover:  #D6CCBD;  /* stone-300 */
+  --amber:         #9C7049;  /* clay-500  主色（陶土） */
+  --amber-dim:     rgba(156,112,73,0.10);
+  --amber-glow:    rgba(156,112,73,0.04);
+  --text-primary:  #3E3830;  /* stone-800 */
+  --text-secondary:#6E6559;  /* stone-600 */
+  --text-muted:    #8D8172;  /* stone-500 */
+  --green:         #5A6A49;  /* sage-600 */
+  --green-dim:     rgba(90,106,73,0.10);
+  --yellow:        #8F7033;  /* ochre-600 */
+  --yellow-dim:    rgba(143,112,51,0.10);
+  --radius-sm:     8px;
   --radius-md:     10px;
   --radius-lg:     14px;
 }
@@ -34,14 +35,13 @@ body {
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-image: radial-gradient(circle, #2a2a38 1px, transparent 1px);
-  background-size: 28px 28px;
+  letter-spacing: -0.005em;
 }
 
 /* ── Header ──────────────────────────────────────────────── */
 .hdr {
   border-bottom: 1px solid var(--border);
-  background: rgba(13,13,16,0.85);
+  background: rgba(250,248,244,0.88);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   position: sticky;
@@ -220,6 +220,7 @@ body {
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 1px 2px rgba(62,56,48,0.04);
   transition: border-color 0.22s, transform 0.18s, box-shadow 0.22s;
   display: flex;
   flex-direction: column;
@@ -238,9 +239,9 @@ body {
 }
 
 .tool-card.available:hover {
-  border-color: rgba(240,165,0,0.4);
+  border-color: #CBAA88;
   transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(240,165,0,0.2);
+  box-shadow: 0 6px 20px rgba(62,56,48,0.08);
 }
 
 .tool-card.available:hover::before { opacity: 1; }
@@ -295,7 +296,7 @@ body {
 
 .tool-card.available:hover .card-icon {
   background: var(--amber-dim);
-  border-color: rgba(240,165,0,0.3);
+  border-color: rgba(156,112,73,0.25);
 }
 
 .card-status {
@@ -313,13 +314,13 @@ body {
 .status-available {
   background: var(--green-dim);
   color: var(--green);
-  border: 1px solid rgba(52,211,153,0.2);
+  border: 1px solid rgba(90,106,73,0.18);
 }
 
 .status-dev {
   background: var(--yellow-dim);
   color: var(--yellow);
-  border: 1px solid rgba(251,191,36,0.2);
+  border: 1px solid rgba(143,112,51,0.18);
 }
 
 .status-dot {

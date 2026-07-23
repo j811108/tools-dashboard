@@ -1,7 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { Upload, Download, FileSpreadsheet, Plus, ArrowLeft, Trash2 } from 'lucide-react';
-import { useNavigate } from "react-router-dom";
+import { Upload, Download, FileSpreadsheet, Plus, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import HelpModal from "../components/HelpModal";
+import ToolHeader from "../components/ToolHeader";
+import { HELP_DOCS } from '../data/helpDocs';
 
 // 制式輸出模板欄位（順序即輸出順序）
 const OUTPUT_COLUMNS = [
@@ -15,6 +17,8 @@ const OUTPUT_COLUMNS = [
   { key: '官網', width: 10 },
   { key: '平台', width: 10 },
   { key: '展威', width: 10 },
+  { key: 'ELLE', width: 10 },
+  { key: '誠品', width: 10 },
   { key: '備註', width: 20 },
 ];
 
@@ -30,7 +34,7 @@ const getItemNumber = (productCode) => {
 // 「展宇麗嬰(平台總倉)」同時含「平台」「總倉」，要判成平台而非總倉。
 const resolveSourceType = (warehouseName) => {
   const name = warehouseName?.toString() ?? '';
-  if (name.includes('展威')) return '展威';
+  if (name.includes('展威麗嬰房(平台總倉)')) return '展威';
   if (name.includes('平台') || name.includes('平臺')) return '平台';
   if (name.includes('電商') || name.includes('官網')) return '官網';
   return '總倉';  //1140922 未知一律丟總倉
@@ -127,11 +131,7 @@ const ExcelMergeTool = () => {
   const [loading, setLoading] = useState(false);
   const [extractedTables, setExtractedTables] = useState([]);
   const [previewMode, setPreviewMode] = useState(null);
-  const navigate = useNavigate();
-
-  const handleBackToHome = () => {
-    navigate("/");
-  };
+  const [showHelp, setShowHelp] = useState(false);
 
   // 處理來源檔案上傳（可一次選多檔，也可分次累加）
   const handleSourceFileUpload = useCallback(async (event) => {
@@ -232,7 +232,7 @@ const ExcelMergeTool = () => {
                 // 每個輸出欄位底下再依「原始倉庫名稱」分別記錄：
                 // 同一倉庫重複出現（分頁）→ 覆蓋，不會重複累加；
                 // 不同倉庫落在同一欄位（例：展威麗嬰房 + 展威麗嬰房(平台總倉)）→ 相加。
-                byWarehouse: { 總倉: {}, 官網: {}, 平台: {}, 展威: {} }
+                byWarehouse: { 總倉: {}, 官網: {}, 平台: {}, 展威: {} , ELLE: {} , 誠品: {} }
               };
             } else {
               if (productName) inventoryMap[key].productName = productName;
@@ -254,6 +254,8 @@ const ExcelMergeTool = () => {
         item.官網 = sumOf(item.byWarehouse.官網);
         item.平台 = sumOf(item.byWarehouse.平台);
         item.展威 = sumOf(item.byWarehouse.展威);
+        item.ELLE = sumOf(item.byWarehouse.ELLE);
+        item.誠品 = sumOf(item.byWarehouse.誠品);
       });
 
       // 將 inventoryMap 轉為陣列，先按年度倒序排列，再按商品代號排序
@@ -303,6 +305,8 @@ const ExcelMergeTool = () => {
       官網: item.官網 || '',
       平台: item.平台 || '',
       展威: item.展威 || '',
+      ELLE: item.ELLE || '',
+      誠品: item.誠品 || '',
       備註: ''
     }));
 
@@ -321,34 +325,25 @@ const ExcelMergeTool = () => {
     // 單檔沿用來源檔名；多檔改標示合併檔數，避免誤以為只含其中一份
     const baseName = sourceFiles.length === 1
       ? sourceFiles[0].name.split('.')[0]
-      : `合併${sourceFiles.length}檔`;
+      : `${sourceFiles[0].name.split('.')[0]} 合併${sourceFiles.length}檔`;
     const fileName = `庫存表_${baseName}_${yymmdd}.xlsx`;
 
     XLSX.writeFile(wb, fileName);
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6 bg-gray-50 min-h-screen">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <button
-              onClick={handleBackToHome}
-              className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              返回工具首頁
-            </button>
-            <h1 className="text-xl font-semibold text-gray-900">
-              庫存表
-            </h1>
-            <div className="w-32"></div>
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-stone-50">
+      <ToolHeader title="庫存表" onHelp={() => setShowHelp(true)} />
 
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+      <HelpModal
+        open={showHelp}
+        onClose={() => setShowHelp(false)}
+        title={HELP_DOCS['excel-merge-tool'].title}
+        content={HELP_DOCS['excel-merge-tool'].content}
+      />
+
+      <div className="mx-auto w-full max-w-[1100px] px-5 sm:px-8 py-10">
+      <div className="bg-white rounded-xl border border-stone-200 shadow-sm p-6 sm:p-8 mb-6">
         <h1 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
           <FileSpreadsheet className="text-blue-600" />
           庫存表更新工具 - 多表格區塊版本
@@ -460,8 +455,8 @@ const ExcelMergeTool = () => {
             </div>
             <div className="text-xs text-gray-600 mt-3 space-y-1">
               <div>A/商品代號、B/商品名稱、P/尺寸名稱、N/年度、M/含稅定價 → 直接取自來源檔案</div>
-              <div>L/可售量 → 依表格區塊分別填入 總倉 / 官網 / 平台 / 展威</div>
-              <div>倉庫對應：含「展威」→ 展威；含「平台」→ 平台；含「電商 / 官網」→ 官網；其餘 → 總倉</div>
+              <div>L/可售量 → 依表格區塊分別填入 總倉 / 官網 / 平台 / 展威 / ELLE / 誠品</div>
+              <div>倉庫對應：含「平台」→ 平台；含「電商 / 官網」→ 官網；其餘 → 總倉</div>
               <div>可一次上傳多個檔案（例：主庫存檔 + 展威檔），會合併成一份輸出；沒有庫存的欄位留白</div>
               <div>備註 → 一律留白，供人工填寫</div>
             </div>
@@ -579,6 +574,8 @@ const ExcelMergeTool = () => {
                       <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">官網</th>
                       <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">平台</th>
                       <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">展威</th>
+                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">ELLE</th>
+                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">誠品</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -594,6 +591,8 @@ const ExcelMergeTool = () => {
                         <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.官網 || ''}</td>
                         <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.平台 || ''}</td>
                         <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.展威 || ''}</td>
+                        <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.ELLE || ''}</td>
+                        <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.誠品 || ''}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -611,6 +610,7 @@ const ExcelMergeTool = () => {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
