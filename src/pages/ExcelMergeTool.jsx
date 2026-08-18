@@ -1,129 +1,37 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Upload, Download, FileSpreadsheet, Plus, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import HelpModal from "../components/HelpModal";
 import ToolHeader from "../components/ToolHeader";
 import { HELP_DOCS } from '../data/helpDocs';
+import {
+  CATEGORIES,
+  resolveSourceType,
+  readSourceFile,
+  detectCodePrefixes,
+  buildSummary,
+  buildColumns,
+  cellValue,
+} from '../utils/inventoryUtils';
 
-// 制式輸出模板欄位（順序即輸出順序）
-const OUTPUT_COLUMNS = [
-  { key: '商品代號', width: 17 },
-  { key: '商品名稱', width: 25 },
-  { key: '貨號', width: 17 },
-  { key: '尺寸名稱', width: 15 },
-  { key: '年度', width: 10 },
-  { key: '含稅定價', width: 12 },
-  { key: '總倉', width: 10 },
-  { key: '官網', width: 10 },
-  { key: '平台', width: 10 },
-  { key: '展威', width: 10 },
-  { key: 'ELLE', width: 10 },
-  { key: '誠品', width: 10 },
-  { key: '備註', width: 20 },
-];
+const VERSIONS = ['倉庫別', '品牌別'];
+let ruleSeq = 0;  // 給動態規則列一個穩定 key
+const newRule = (extra) => ({ id: `r${++ruleSeq}`, prefix: '', ...extra });
 
-// 貨號：商品代號有兩個 - 才取，SG 開頭取前 12 字，其餘取前 13 字
-const getItemNumber = (productCode) => {
-  const code = productCode?.toString() ?? '';
-  if (code.split('-').length - 1 !== 2) return '';
-  return code.slice(0, code.startsWith('SG') ? 12 : 13);
+// 輸出格式示意列（依 column key 取值，沒對到的欄位留白；庫別欄示意數量）
+const EXAMPLE_ROW = {
+  商品代號: '4000016-0001U-356',
+  商品名稱: 'Color',
+  貨號: '4000016-0001U',
+  尺寸名稱: '356',
+  年度: '2027',
+  含稅定價: '900',
+  總倉: '40',
+  官網: '19',
+  平台: '33',
+  展威: '1',
+  品牌: '麗嬰',
 };
-
-// 倉庫名稱 → 輸出欄位。先命中先算，順序不可調換：
-// 「展威麗嬰房(平台總倉)」同時含「平台」「總倉」，不先攔會被判成平台；
-// 「展宇麗嬰(平台總倉)」同時含「平台」「總倉」，要判成平台而非總倉。
-const resolveSourceType = (warehouseName) => {
-  const name = warehouseName?.toString() ?? '';
-  if (name.includes('展威麗嬰房(平台總倉)')) return '展威';
-  if (name.includes('平台') || name.includes('平臺')) return '平台';
-  if (name.includes('電商') || name.includes('官網')) return '官網';
-  return '總倉';  //1140922 未知一律丟總倉
-};
-
-// 解析單一檔案的表格區塊
-const parseTableBlocks = (jsonData, fileName) => {
-  const tables = [];
-  let currentTable = null;
-
-  for (let i = 0; i < jsonData.length; i++) {
-    const row = jsonData[i];
-    if (!row || row.length === 0) continue;
-
-    const rowText = row.join('').toLowerCase();
-    const firstCell = (row[0] ?? '').toString().trim();
-    // 來源檔的區塊標題長這樣：「倉庫 :展威麗嬰房(平台總倉)」
-    const isWarehouseRow = firstCell.startsWith('倉庫');
-
-    // 檢查是否為表格名稱行
-    if (isWarehouseRow ||
-        rowText.includes('展') || rowText.includes('總倉') || rowText.includes('電商') || rowText.includes('平台') ||
-        rowText.includes('官網') || rowText.includes('倉庫')) {
-      // 保存前一個表格
-      if (currentTable && currentTable.dataRows.length > 0) {
-        tables.push(currentTable);
-      }
-
-      // 開始新表格。倉庫列取「倉庫 :」後面的實際倉庫名稱，其餘沿用整格文字
-      const tableName = isWarehouseRow
-        ? firstCell.replace(/^倉庫\s*[:：]?\s*/, '')
-        : firstCell;
-
-      currentTable = {
-        name: tableName,
-        sourceType: resolveSourceType(tableName),
-        fileName,
-        nameRow: i,
-        headerRow: -1,
-        dataRows: [],
-        summaryRow: -1
-      };
-    }
-    // 檢查是否為標題行
-    else if (currentTable && rowText.includes('商品代號') && rowText.includes('商品名稱')) {
-      currentTable.headerRow = i;
-      currentTable.headers = row;
-    }
-    // 檢查是否為統計行
-    else if (currentTable && (rowText.includes('小計') || rowText.includes('合計') || rowText.includes('數量'))) {
-      currentTable.summaryRow = i;
-    }
-    // 檢查是否為資料行
-    else if (currentTable && currentTable.headerRow !== -1 && row[0] &&
-             !rowText.includes('小計') && !rowText.includes('合計') && !rowText.includes('數量')) {
-      if (row[0].toString().trim() !== '' && row.length > 5) {
-        currentTable.dataRows.push({
-          rowIndex: i,
-          data: row
-        });
-      }
-    }
-  }
-
-  // 保存最後一個表格
-  if (currentTable && currentTable.dataRows.length > 0) {
-    tables.push(currentTable);
-  }
-
-  return tables;
-};
-
-// 讀取單一 Excel 檔並解析出區塊（只讀第一個工作表）
-const readSourceFile = (file) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const workbook = XLSX.read(e.target.result, { type: 'binary' });
-        const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-        resolve({ name: file.name, tables: parseTableBlocks(jsonData, file.name) });
-      } catch (error) {
-        reject(new Error(`讀取檔案 ${file.name} 時發生錯誤: ${error.message}`));
-      }
-    };
-    reader.onerror = () => reject(new Error(`讀取檔案 ${file.name} 失敗`));
-    reader.readAsBinaryString(file);
-  });
 
 const ExcelMergeTool = () => {
   const [sourceFiles, setSourceFiles] = useState([]);
@@ -132,6 +40,26 @@ const ExcelMergeTool = () => {
   const [extractedTables, setExtractedTables] = useState([]);
   const [previewMode, setPreviewMode] = useState(null);
   const [showHelp, setShowHelp] = useState(false);
+
+  // 設定面板狀態
+  const [outputVersion, setOutputVersion] = useState('倉庫別');
+  const [warehouseMapping, setWarehouseMapping] = useState({});           // 倉庫名 → 庫別
+  const [categoryRules, setCategoryRules] = useState([]);                  // 貨號開頭 → 庫別（可凌駕）
+  const [brandRules, setBrandRules] = useState([]);                        // 貨號開頭 → 品牌
+
+  // 偵測到的倉庫（依解析結果，保留使用者已改的對應）
+  useEffect(() => {
+    const names = [...new Set(extractedTables.map(t => t.name))];
+    setWarehouseMapping(prev => {
+      const next = {};
+      names.forEach(n => { next[n] = prev[n] || resolveSourceType(n); });
+      return next;
+    });
+    setProcessedData(null);
+  }, [extractedTables]);
+
+  const detectedPrefixes = useMemo(() => detectCodePrefixes(extractedTables), [extractedTables]);
+  const columns = useMemo(() => buildColumns(outputVersion), [outputVersion]);
 
   // 處理來源檔案上傳（可一次選多檔，也可分次累加）
   const handleSourceFileUpload = useCallback(async (event) => {
@@ -191,7 +119,21 @@ const ExcelMergeTool = () => {
     setPreviewMode(null);
   };
 
-  // 處理資料合併
+  // 設定面板操作
+  const updateWarehouseCategory = (name, category) => {
+    setWarehouseMapping(prev => ({ ...prev, [name]: category }));
+    setProcessedData(null);
+  };
+  const updateRule = (setRules, id, patch) => {
+    setRules(prev => prev.map(r => (r.id === id ? { ...r, ...patch } : r)));
+    setProcessedData(null);
+  };
+  const removeRule = (setRules, id) => {
+    setRules(prev => prev.filter(r => r.id !== id));
+    setProcessedData(null);
+  };
+
+  // 處理資料合併（庫別指派邏輯集中在 inventoryUtils.buildSummary）
   const processInventoryData = () => {
     if (sourceFiles.length === 0) {
       alert('請先上傳來源檔案');
@@ -206,80 +148,8 @@ const ExcelMergeTool = () => {
     setLoading(true);
 
     try {
-      // 創建商品庫存映射表
-      const inventoryMap = {};
-
-      // 處理每個表格區塊
-      extractedTables.forEach(table => {
-        table.dataRows.forEach(rowData => {
-          const row = rowData.data;
-          const productCode = row[0]; // A欄 - 商品代號
-          const productName = row[1]; // B欄 - 商品名稱
-          const sizeName = row[15]; // P欄 - 尺寸名稱
-          const year = row[13]; // N欄 - 年度
-          const price = row[12]; // M欄 - 含稅定價
-          const inventory = parseInt(row[11]) || 0; // L欄 - 可售量
-
-          if (productCode) {
-            const key = `${productCode}`;
-            if (!inventoryMap[key]) {
-              inventoryMap[key] = {
-                productCode,
-                productName,
-                sizeName,
-                year,
-                price,
-                // 每個輸出欄位底下再依「原始倉庫名稱」分別記錄：
-                // 同一倉庫重複出現（分頁）→ 覆蓋，不會重複累加；
-                // 不同倉庫落在同一欄位（例：展威麗嬰房 + 展威麗嬰房(平台總倉)）→ 相加。
-                byWarehouse: { 總倉: {}, 官網: {}, 平台: {}, 展威: {} , ELLE: {} , 誠品: {} }
-              };
-            } else {
-              if (productName) inventoryMap[key].productName = productName;
-              if (sizeName) inventoryMap[key].sizeName = sizeName;
-              if (year) inventoryMap[key].year = year;
-              if (price) inventoryMap[key].price = price;
-            }
-
-            const bucket = inventoryMap[key].byWarehouse[table.sourceType];
-            if (bucket) bucket[table.name] = inventory;
-          }
-        });
-      });
-
-      // 把各倉庫的數量加總成輸出欄位
-      const sumOf = (bucket) => Object.values(bucket).reduce((sum, n) => sum + n, 0);
-      Object.values(inventoryMap).forEach(item => {
-        item.總倉 = sumOf(item.byWarehouse.總倉);
-        item.官網 = sumOf(item.byWarehouse.官網);
-        item.平台 = sumOf(item.byWarehouse.平台);
-        item.展威 = sumOf(item.byWarehouse.展威);
-        item.ELLE = sumOf(item.byWarehouse.ELLE);
-        item.誠品 = sumOf(item.byWarehouse.誠品);
-      });
-
-      // 將 inventoryMap 轉為陣列，先按年度倒序排列，再按商品代號排序
-      const sortedSummary = Object.values(inventoryMap).sort((a, b) => {
-        // 先比較年度（倒序）
-        const yearA = parseInt(a.year) || 0;
-        const yearB = parseInt(b.year) || 0;
-
-        if (yearA !== yearB) {
-          return yearB - yearA; // 年度大的排在前面（倒序）
-        }
-
-        // 年度相同時，按商品代號排序（使用自然排序）
-        return a.productCode.toString().localeCompare(b.productCode.toString(), undefined, {
-          numeric: true,
-          sensitivity: 'base'
-        });
-      });
-
-      setProcessedData({
-        summary: sortedSummary,
-        extractedTables: extractedTables
-      });
-
+      const summary = buildSummary(extractedTables, { warehouseMapping, categoryRules, brandRules });
+      setProcessedData({ summary, extractedTables });
     } catch (error) {
       alert(`處理資料時發生錯誤: ${error.message}`);
     } finally {
@@ -287,37 +157,24 @@ const ExcelMergeTool = () => {
     }
   };
 
-  // 匯出Excel檔案（制式模板）
+  // 匯出Excel檔案（欄位與畫面預覽共用 columns / cellValue）
   const exportToExcel = () => {
     if (!processedData) return;
 
     const wb = XLSX.utils.book_new();
 
-    const summaryData = processedData.summary.map(item => ({
-      商品代號: item.productCode,
-      商品名稱: item.productName || '',
-      貨號: getItemNumber(item.productCode),
-      尺寸名稱: item.sizeName || '',
-      年度: item.year || '',
-      含稅定價: item.price || '',
-      // 數量為 0 時留白，與紙本庫存表格式一致
-      總倉: item.總倉 || '',
-      官網: item.官網 || '',
-      平台: item.平台 || '',
-      展威: item.展威 || '',
-      ELLE: item.ELLE || '',
-      誠品: item.誠品 || '',
-      備註: ''
-    }));
+    const summaryData = processedData.summary.map(item =>
+      Object.fromEntries(columns.map(col => [col.key, cellValue(item, col.key)]))
+    );
 
     const summaryWS = XLSX.utils.json_to_sheet(summaryData, {
-      header: OUTPUT_COLUMNS.map(col => col.key)
+      header: columns.map(col => col.key)
     });
-    summaryWS['!cols'] = OUTPUT_COLUMNS.map(col => ({ wch: col.width }));
+    summaryWS['!cols'] = columns.map(col => ({ wch: col.width }));
 
     XLSX.utils.book_append_sheet(wb, summaryWS, '庫存匯總');
 
-    // 生成檔案名稱，加上日期
+    // 生成檔案名稱，加上版本與日期
     const today = new Date();
     const yymmdd = today.getFullYear().toString().slice(-2) +
                    (today.getMonth() + 1).toString().padStart(2, '0') +
@@ -326,7 +183,7 @@ const ExcelMergeTool = () => {
     const baseName = sourceFiles.length === 1
       ? sourceFiles[0].name.split('.')[0]
       : `${sourceFiles[0].name.split('.')[0]} 合併${sourceFiles.length}檔`;
-    const fileName = `庫存表_${baseName}_${yymmdd}.xlsx`;
+    const fileName = `庫存表_${baseName}_${outputVersion}_${yymmdd}.xlsx`;
 
     XLSX.writeFile(wb, fileName);
   };
@@ -411,57 +268,178 @@ const ExcelMergeTool = () => {
 
         {/* 輸出格式說明 */}
         <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-3">輸出格式（制式模板）</h3>
+          <h3 className="text-lg font-semibold text-gray-800 mb-3">輸出格式（{outputVersion}）</h3>
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="overflow-x-auto">
               <table className="text-xs border bg-white">
                 <thead>
                   <tr className="bg-gray-100">
-                    {OUTPUT_COLUMNS.map(col => (
+                    {columns.map(col => (
                       <th key={col.key} className="border px-2 py-1 whitespace-nowrap">{col.key}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {/* 欄位順序與數量必須與 OUTPUT_COLUMNS 一致 */}
+                  {/* 範例列由 columns 推導，欄位永遠對齊 */}
                   <tr className="text-gray-500">
-                    <td className="border px-2 py-1 whitespace-nowrap">2023GWP01-F</td>
-                    <td className="border px-2 py-1 whitespace-nowrap">托特包</td>
-                    <td className="border px-2 py-1"></td>
-                    <td className="border px-2 py-1">F</td>
-                    <td className="border px-2 py-1">2023</td>
-                    <td className="border px-2 py-1">1080</td>
-                    <td className="border px-2 py-1">19</td>
-                    <td className="border px-2 py-1"></td>
-                    <td className="border px-2 py-1">3</td>
-                    <td className="border px-2 py-1">1</td>
-                    <td className="border px-2 py-1"></td>
-                  </tr>
-                  <tr className="text-gray-500">
-                    <td className="border px-2 py-1 whitespace-nowrap">SG2024-ABC-01</td>
-                    <td className="border px-2 py-1 whitespace-nowrap">範例商品</td>
-                    <td className="border px-2 py-1 whitespace-nowrap">SG2024-ABC-</td>
-                    <td className="border px-2 py-1">356</td>
-                    <td className="border px-2 py-1">2024</td>
-                    <td className="border px-2 py-1">900</td>
-                    <td className="border px-2 py-1">40</td>
-                    <td className="border px-2 py-1">19</td>
-                    <td className="border px-2 py-1">33</td>
-                    <td className="border px-2 py-1"></td>
-                    <td className="border px-2 py-1"></td>
+                    {columns.map(col => (
+                      <td key={col.key} className="border px-2 py-1 whitespace-nowrap">
+                        {EXAMPLE_ROW[col.key] ?? ''}
+                      </td>
+                    ))}
                   </tr>
                 </tbody>
               </table>
             </div>
             <div className="text-xs text-gray-600 mt-3 space-y-1">
               <div>A/商品代號、B/商品名稱、P/尺寸名稱、N/年度、M/含稅定價 → 直接取自來源檔案</div>
-              <div>L/可售量 → 依表格區塊分別填入 總倉 / 官網 / 平台 / 展威 / ELLE / 誠品</div>
-              <div>倉庫對應：含「平台」→ 平台；含「電商 / 官網」→ 官網；其餘 → 總倉</div>
+              <div>L/可售量 → 依「倉庫對應庫別」與「貨號覆蓋規則」填入 {CATEGORIES.join(' / ')}</div>
               <div>可一次上傳多個檔案（例：主庫存檔 + 展威檔），會合併成一份輸出；沒有庫存的欄位留白</div>
-              <div>備註 → 一律留白，供人工填寫</div>
+              <div>品牌別版本會在庫別欄後多一欄「品牌」（依貨號對應品牌）方便篩選；備註一律留白供人工填寫</div>
             </div>
           </div>
         </div>
+
+        {/* 設定面板（解析後才出現）：版本、倉庫對應、貨號覆蓋、貨號品牌 */}
+        {extractedTables.length > 0 && (
+          <div className="mb-6 space-y-4">
+            {/* 版本選擇 */}
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-gray-700">產出版本：</span>
+              {VERSIONS.map(v => (
+                <label key={v} className="flex items-center gap-1 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="outputVersion"
+                    checked={outputVersion === v}
+                    onChange={() => setOutputVersion(v)}
+                  />
+                  {v}{v === '品牌別' && '（多一欄品牌）'}
+                </label>
+              ))}
+            </div>
+
+            {/* 倉庫對應庫別 */}
+            <div className="border border-gray-200 rounded-lg p-4">
+              <h4 className="font-medium text-gray-800 mb-1">倉庫對應庫別</h4>
+              <p className="text-xs text-gray-500 mb-3">依偵測到的倉庫自動帶入預設庫別，可用下拉調整。</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {Object.keys(warehouseMapping).map(name => (
+                  <div key={name} className="flex items-center gap-2 text-sm">
+                    <span className="flex-1 break-all text-gray-700">{name}</span>
+                    <span className="text-gray-400">→</span>
+                    <select
+                      value={warehouseMapping[name]}
+                      onChange={(e) => updateWarehouseCategory(name, e.target.value)}
+                      className="border rounded px-2 py-1 text-sm"
+                    >
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 貨號 → 庫別 覆蓋規則 */}
+            <div className="border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-1">
+                <h4 className="font-medium text-gray-800">貨號對應庫別（覆蓋規則）</h4>
+                <button
+                  onClick={() => setCategoryRules(prev => [...prev, newRule({ category: CATEGORIES[0], override: true })])}
+                  className="flex items-center text-blue-600 hover:text-blue-800 text-sm border border-blue-200 rounded px-2 py-1"
+                >
+                  <Plus className="h-3 w-3 mr-1" />新增
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">
+                勾「凌駕」時，貨號開頭命中的商品整列改用指定庫別（不管來自哪個倉庫）；不勾則不生效。沒設定就只看上方倉庫對應。
+                {detectedPrefixes.length > 0 && <>本次檔案貨號開頭：<span className="font-mono">{detectedPrefixes.join('、')}</span></>}
+              </p>
+              {categoryRules.length === 0 && <p className="text-xs text-gray-400">尚無規則</p>}
+              <div className="space-y-2">
+                {categoryRules.map(rule => (
+                  <div key={rule.id} className="flex items-center gap-2 text-sm flex-wrap">
+                    <span className="text-gray-500">貨號開頭</span>
+                    <input
+                      type="text"
+                      value={rule.prefix}
+                      onChange={(e) => updateRule(setCategoryRules, rule.id, { prefix: e.target.value })}
+                      placeholder="如 4、HV"
+                      className="border rounded px-2 py-1 w-24 font-mono"
+                    />
+                    <span className="text-gray-400">→</span>
+                    <select
+                      value={rule.category}
+                      onChange={(e) => updateRule(setCategoryRules, rule.id, { category: e.target.value })}
+                      className="border rounded px-2 py-1"
+                    >
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <label className="flex items-center gap-1 text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={rule.override}
+                        onChange={(e) => updateRule(setCategoryRules, rule.id, { override: e.target.checked })}
+                      />
+                      凌駕倉庫對應
+                    </label>
+                    <button
+                      onClick={() => removeRule(setCategoryRules, rule.id)}
+                      className="text-red-600 hover:text-red-800 border border-red-200 rounded px-2 py-1"
+                    >
+                      移除
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 貨號 → 品牌 對應（品牌別版本用） */}
+            <div className="border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-1">
+                <h4 className="font-medium text-gray-800">貨號對應品牌</h4>
+                <button
+                  onClick={() => setBrandRules(prev => [...prev, newRule({ brand: '' })])}
+                  className="flex items-center text-blue-600 hover:text-blue-800 text-sm border border-blue-200 rounded px-2 py-1"
+                >
+                  <Plus className="h-3 w-3 mr-1" />新增
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mb-3">
+                依貨號開頭標記品牌，供「品牌別」版本的品牌欄篩選；沒設定則品牌欄留白。命中多筆取最長前綴。
+              </p>
+              {brandRules.length === 0 && <p className="text-xs text-gray-400">尚無規則</p>}
+              <div className="space-y-2">
+                {brandRules.map(rule => (
+                  <div key={rule.id} className="flex items-center gap-2 text-sm flex-wrap">
+                    <span className="text-gray-500">貨號開頭</span>
+                    <input
+                      type="text"
+                      value={rule.prefix}
+                      onChange={(e) => updateRule(setBrandRules, rule.id, { prefix: e.target.value })}
+                      placeholder="如 4、HV"
+                      className="border rounded px-2 py-1 w-24 font-mono"
+                    />
+                    <span className="text-gray-400">→</span>
+                    <input
+                      type="text"
+                      value={rule.brand}
+                      onChange={(e) => updateRule(setBrandRules, rule.id, { brand: e.target.value })}
+                      placeholder="品牌名"
+                      className="border rounded px-2 py-1 w-32"
+                    />
+                    <button
+                      onClick={() => removeRule(setBrandRules, rule.id)}
+                      className="text-red-600 hover:text-red-800 border border-red-200 rounded px-2 py-1"
+                    >
+                      移除
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 提取的表格區塊顯示 */}
         {extractedTables.length > 0 && (
@@ -470,7 +448,7 @@ const ExcelMergeTool = () => {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {extractedTables.map((table, index) => (
                 <div key={index} className="border rounded-lg p-3 bg-gray-50">
-                  <div className="font-medium text-gray-800 mb-1">{table.sourceType}</div>
+                  <div className="font-medium text-gray-800 mb-1">{warehouseMapping[table.name] || table.sourceType}</div>
                   <div className="text-xs text-gray-500 mb-1 break-all">
                     <div>倉庫：{table.name || '（無名稱）'}</div>
                     <div>檔案：{table.fileName}</div>
@@ -555,7 +533,7 @@ const ExcelMergeTool = () => {
               </button>
             </div>
 
-            {/* 庫存匯總預覽 */}
+            {/* 庫存匯總預覽（欄位與匯出共用 columns / cellValue） */}
             <div className="bg-white border rounded-lg overflow-hidden mb-4">
               <div className="bg-gray-100 px-4 py-2 border-b">
                 <h4 className="font-medium">庫存匯總預覽 (前10項)</h4>
@@ -564,35 +542,21 @@ const ExcelMergeTool = () => {
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-gray-500">商品代號</th>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-gray-500">商品名稱</th>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-gray-500">貨號</th>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-gray-500">尺寸名稱</th>
-                      <th className="px-2 py-2 text-left text-xs font-medium text-gray-500">年度</th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">含稅定價</th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">總倉</th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">官網</th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">平台</th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">展威</th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">ELLE</th>
-                      <th className="px-2 py-2 text-right text-xs font-medium text-gray-500">誠品</th>
+                      {columns.map(col => (
+                        <th key={col.key} className="px-2 py-2 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
+                          {col.key}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {processedData.summary.slice(0, 10).map((item, index) => (
                       <tr key={index}>
-                        <td className="px-2 py-2 text-sm font-medium text-gray-900">{item.productCode}</td>
-                        <td className="px-2 py-2 text-sm text-gray-900">{item.productName}</td>
-                        <td className="px-2 py-2 text-sm font-medium text-gray-900">{getItemNumber(item.productCode)}</td>
-                        <td className="px-2 py-2 text-sm text-gray-900">{item.sizeName}</td>
-                        <td className="px-2 py-2 text-sm text-gray-900">{item.year}</td>
-                        <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.price}</td>
-                        <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.總倉 || ''}</td>
-                        <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.官網 || ''}</td>
-                        <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.平台 || ''}</td>
-                        <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.展威 || ''}</td>
-                        <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.ELLE || ''}</td>
-                        <td className="px-2 py-2 text-sm text-gray-900 text-right">{item.誠品 || ''}</td>
+                        {columns.map(col => (
+                          <td key={col.key} className="px-2 py-2 text-sm text-gray-900 whitespace-nowrap">
+                            {cellValue(item, col.key)}
+                          </td>
+                        ))}
                       </tr>
                     ))}
                   </tbody>
